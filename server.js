@@ -45,10 +45,22 @@ io.on('connection', (socket) => {
     console.log(`Client joined event room: event-${eventId}`);
   });
   
+  // Join admin event room
+  socket.on('join-event-admin', (eventId) => {
+    socket.join(`event-${eventId}-admin`);
+    console.log(`Admin joined event room: event-${eventId}-admin`);
+  });
+  
+  // Join user room
+  socket.on('join-user', (userId) => {
+    socket.join(`user-${userId}`);
+    console.log(`User joined personal room: user-${userId}`);
+  });
+  
   // Vote for a track
   socket.on('vote-track', async ({ eventId, trackId, userId }) => {
     try {
-      // Your voting logic here
+      // Voting logic implemented in the controller
       
       // Broadcast the updated queue to all clients in the event room
       io.to(`event-${eventId}`).emit('queue-updated');
@@ -66,6 +78,8 @@ io.on('connection', (socket) => {
 app.use('/api/auth', require('./server/routes/auth.routes'));
 app.use('/api/events', require('./server/routes/event.routes'));
 app.use('/api/music', require('./server/routes/music.routes'));
+app.use('/api/orders', require('./server/routes/order.routes'));
+app.use('/api/menu', require('./server/routes/menu.routes'));
 
 // Test route
 app.get('/api/test', (req, res) => {
