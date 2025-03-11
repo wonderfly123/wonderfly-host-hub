@@ -87,6 +87,7 @@ app.use('/api/music', require('./server/routes/music.routes'));
 app.use('/api/orders', require('./server/routes/order.routes'));
 app.use('/api/menu', require('./server/routes/menu.routes'));
 app.use('/api/polls', require('./server/routes/poll.routes'));
+app.use('/api/notifications', require('./server/routes/notification.routes'));
 
 // Test route
 app.get('/api/test', (req, res) => {
