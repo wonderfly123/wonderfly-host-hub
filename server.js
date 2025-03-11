@@ -57,6 +57,12 @@ io.on('connection', (socket) => {
     console.log(`User joined personal room: user-${userId}`);
   });
   
+  // Join poll room
+  socket.on('join-poll', (pollId) => {
+    socket.join(`poll-${pollId}`);
+    console.log(`Client joined poll room: poll-${pollId}`);
+  });
+  
   // Vote for a track
   socket.on('vote-track', async ({ eventId, trackId, userId }) => {
     try {
@@ -80,6 +86,7 @@ app.use('/api/events', require('./server/routes/event.routes'));
 app.use('/api/music', require('./server/routes/music.routes'));
 app.use('/api/orders', require('./server/routes/order.routes'));
 app.use('/api/menu', require('./server/routes/menu.routes'));
+app.use('/api/polls', require('./server/routes/poll.routes'));
 
 // Test route
 app.get('/api/test', (req, res) => {
