@@ -27,3 +27,7 @@ yarn-error.log*
 .vscode/
 *.sublime-project
 *.sublime-workspace
+.venv/
+*.pyc
+__pycache__/
+.venv/
