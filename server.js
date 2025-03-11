@@ -22,6 +22,9 @@ const io = socketIo(server, {
   }
 });
 
+// Make io available to routes and controllers
+app.set('io', io);
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -36,15 +39,33 @@ mongoose.connect(process.env.MONGODB_URI)
 io.on('connection', (socket) => {
   console.log('New client connected');
   
+  // Join an event room
+  socket.on('join-event', (eventId) => {
+    socket.join(`event-${eventId}`);
+    console.log(`Client joined event room: event-${eventId}`);
+  });
+  
+  // Vote for a track
+  socket.on('vote-track', async ({ eventId, trackId, userId }) => {
+    try {
+      // Your voting logic here
+      
+      // Broadcast the updated queue to all clients in the event room
+      io.to(`event-${eventId}`).emit('queue-updated');
+    } catch (error) {
+      console.error('Error processing vote:', error);
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log('Client disconnected');
   });
-  
-  // Add more socket event handlers here
 });
 
 // Routes
 app.use('/api/auth', require('./server/routes/auth.routes'));
+app.use('/api/events', require('./server/routes/event.routes'));
+app.use('/api/music', require('./server/routes/music.routes'));
 
 // Test route
 app.get('/api/test', (req, res) => {
@@ -61,7 +82,7 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // Start server
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
