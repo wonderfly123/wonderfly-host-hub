@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Wonderfly Host Hub
 
 Interactive control system for event management. The Wonderfly Host Hub is a web-based system designed to enhance client engagement during events.
