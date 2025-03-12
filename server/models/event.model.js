@@ -1,3 +1,4 @@
+// server/models/event.model.js
 const mongoose = require('mongoose');
 
 const eventSchema = new mongoose.Schema({
@@ -30,6 +31,18 @@ const eventSchema = new mongoose.Schema({
     description: String
   }],
   spotify: {
+    isConnected: {
+      type: Boolean,
+      default: false
+    },
+    accessToken: String,
+    refreshToken: String,
+    tokenExpiresAt: Date,
+    preferredDeviceId: String,
+    connectedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
     playlistId: String,
     allowVoting: {
       type: Boolean,

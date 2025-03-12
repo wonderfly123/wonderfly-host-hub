@@ -1,26 +1,29 @@
 // server/routes/music.routes.js
 const express = require('express');
 const musicController = require('../controllers/music.controller');
-const { authenticateToken } = require('../middlewares/auth.middleware');
+const { authenticateToken, isAdmin, eventParticipantCheck } = require('../middlewares/auth.middleware');
 
 const router = express.Router();
 
-// Search for tracks
-router.get('/search', authenticateToken, musicController.searchTracks);
+// Generate Spotify Authorization URL (admin only)
+router.get('/:eventId/spotify-auth-url', authenticateToken, isAdmin, musicController.generateSpotifyAuthUrl);
 
-// Get playlist tracks for an event
-router.get('/event/:eventId/playlist', authenticateToken, musicController.getEventPlaylist);
+// Spotify Callback Route (public route)
+router.get('/spotify/callback', musicController.spotifyCallback);
 
-// Update event playlist
-router.put('/event/:eventId/playlist', authenticateToken, musicController.updateEventPlaylist);
+// Get Available Spotify Devices (event participants)
+router.get('/:eventId/devices', authenticateToken, eventParticipantCheck, musicController.getSpotifyDevices);
 
-// Get voting queue for an event
-router.get('/event/:eventId/queue', authenticateToken, musicController.getVotingQueue);
+// Select Playback Device (admin only)
+router.post('/device', authenticateToken, isAdmin, musicController.selectPlaybackDevice);
 
-// Add track to voting queue
-router.post('/event/:eventId/queue', authenticateToken, musicController.addTrackToQueue);
+// Search Tracks (event participants)
+router.get('/:eventId/search', authenticateToken, eventParticipantCheck, musicController.searchTracks);
 
-// Vote for a track
-router.post('/event/:eventId/queue/:trackId/vote', authenticateToken, musicController.voteForTrack);
+// Add Track to Queue (event participants)
+router.post('/:eventId/queue', authenticateToken, eventParticipantCheck, musicController.addTrackToQueue);
+
+// Get Current Playback (event participants)
+router.get('/:eventId/playback', authenticateToken, eventParticipantCheck, musicController.getCurrentPlayback);
 
 module.exports = router;

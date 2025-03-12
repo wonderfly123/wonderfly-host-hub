@@ -1,5 +1,6 @@
 // src/components/notifications/NotificationCenter.js
 import React, { useState, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Badge,
   IconButton,
@@ -19,11 +20,13 @@ import {
   Info as InfoIcon,
   Warning as WarningIcon,
   Error as ErrorIcon,
-  CheckCircle as SuccessIcon
+  CheckCircle as SuccessIcon,
+  HowToVote as VoteIcon
 } from '@mui/icons-material';
 import { NotificationContext } from '../../contexts/NotificationContext';
 
 const NotificationCenter = () => {
+  const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState(null);
   const { notifications, unreadCount, loading, markAsRead, markAllAsRead } = useContext(NotificationContext);
   
@@ -42,9 +45,32 @@ const NotificationCenter = () => {
   const handleMarkAllAsRead = () => {
     markAllAsRead();
   };
+  
+  // Handle notification click
+  const handleNotificationClick = (notification) => {
+    // Mark as read
+    markAsRead(notification._id);
+    
+    // Handle specific notification types
+    if (notification.metadata?.type === 'poll') {
+      // Navigate to polls page with the specific poll highlighted
+      const eventId = notification.event;
+      navigate(`/event/${eventId}/polls?pollId=${notification.metadata.pollId}`);
+    }
+    
+    // Close notification center
+    handleClose();
+  };
 
-  const getNotificationIcon = (type) => {
-    switch (type) {
+  // Get notification icon based on type and metadata
+  const getNotificationIcon = (notification) => {
+    // First check metadata for more specific icon
+    if (notification.metadata?.type === 'poll') {
+      return <VoteIcon color="primary" />;
+    }
+    
+    // Fall back to existing type-based logic
+    switch (notification.type) {
       case 'success':
         return <SuccessIcon color="success" />;
       case 'warning':
@@ -125,14 +151,20 @@ const NotificationCenter = () => {
                 alignItems="flex-start"
                 sx={{
                   bgcolor: notification.read ? 'inherit' : 'action.hover',
-                  borderBottom: '1px solid rgba(0, 0, 0, 0.12)'
+                  borderBottom: '1px solid rgba(0, 0, 0, 0.12)',
+                  cursor: 'pointer',
+                  '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.04)' }
                 }}
+                onClick={() => handleNotificationClick(notification)}
                 secondaryAction={
                   !notification.read && (
                     <IconButton
                       edge="end"
                       size="small"
-                      onClick={() => handleMarkAsRead(notification._id)}
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent ListItem click
+                        handleMarkAsRead(notification._id);
+                      }}
                     >
                       <CheckIcon fontSize="small" />
                     </IconButton>
@@ -140,7 +172,7 @@ const NotificationCenter = () => {
                 }
               >
                 <Box sx={{ mr: 2, mt: 0.5 }}>
-                  {getNotificationIcon(notification.type)}
+                  {getNotificationIcon(notification)}
                 </Box>
                 <ListItemText
                   primary={notification.title}

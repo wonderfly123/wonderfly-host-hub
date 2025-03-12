@@ -1,4 +1,4 @@
-// src/contexts/AuthContext.js
+// client/src/contexts/AuthContext.js
 import React, { createContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
@@ -55,6 +55,7 @@ export const AuthProvider = ({ children }) => {
         if (decodedToken.exp * 1000 < Date.now()) {
           console.log('Token expired, logging out');
           localStorage.removeItem('token');
+          localStorage.removeItem('user'); // Also remove user
           setToken(null);
           setUser(null);
           setIsAuthenticated(false);
@@ -62,15 +63,27 @@ export const AuthProvider = ({ children }) => {
           return;
         }
 
-        // Verify token with backend
+        // Try to restore user from localStorage if it exists
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          setUser(JSON.parse(storedUser));
+          setIsAuthenticated(true);
+          setLoading(false);
+          return;
+        }
+
+        // Otherwise verify token with backend
         const res = await axios.get('/auth/me');
         setUser(res.data.user);
+        // Save user to localStorage
+        localStorage.setItem('user', JSON.stringify(res.data.user));
         setIsAuthenticated(true);
       } catch (error) {
         console.error('Authentication error:', error);
         // Only remove token if there's a 401 error
         if (error.response && error.response.status === 401) {
           localStorage.removeItem('token');
+          localStorage.removeItem('user');
           setToken(null);
           setUser(null);
           setIsAuthenticated(false);
@@ -92,6 +105,7 @@ export const AuthProvider = ({ children }) => {
       const { token: newToken, user: newUser } = res.data;
       
       localStorage.setItem('token', newToken);
+      localStorage.setItem('user', JSON.stringify(newUser)); // Save user to localStorage
       setToken(newToken);
       setUser(newUser);
       setIsAuthenticated(true);
@@ -112,6 +126,7 @@ export const AuthProvider = ({ children }) => {
       const { token: newToken, user: newUser } = res.data;
       
       localStorage.setItem('token', newToken);
+      localStorage.setItem('user', JSON.stringify(newUser)); // Save user to localStorage
       setToken(newToken);
       setUser(newUser);
       setIsAuthenticated(true);
@@ -131,10 +146,12 @@ export const AuthProvider = ({ children }) => {
       
       const { token: newToken, user: newUser, event } = res.data;
       
+      const userWithEvent = { ...newUser, currentEvent: event };
       localStorage.setItem('token', newToken);
+      localStorage.setItem('user', JSON.stringify(userWithEvent)); // Save user with event
       localStorage.setItem('currentEvent', JSON.stringify(event));
       setToken(newToken);
-      setUser({ ...newUser, currentEvent: event });
+      setUser(userWithEvent);
       setIsAuthenticated(true);
       
       return { user: newUser, event };
@@ -147,6 +164,7 @@ export const AuthProvider = ({ children }) => {
   // Logout
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
     localStorage.removeItem('currentEvent');
     setToken(null);
     setUser(null);

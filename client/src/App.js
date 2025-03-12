@@ -27,6 +27,7 @@ import MenuManagement from './components/admin/MenuManagement';
 import AdminMusicControl from './components/admin/AdminMusicControl';
 import AdminTimeline from './components/admin/AdminTimeline';
 import AdminPolls from './components/admin/AdminPolls';
+import AdminAnnouncements from './components/admin/AdminAnnouncements';
 
 // Event Components
 import EventHome from './components/events/EventHome';
@@ -72,6 +73,7 @@ function App() {
                 <Route path="/admin/events/:eventId/music" element={<AdminMusicControl />} />
                 <Route path="/admin/events/:eventId/timeline" element={<AdminTimeline />} />
                 <Route path="/admin/events/:eventId/polls" element={<AdminPolls />} />
+                <Route path="/admin/events/:eventId/announcements" element={<AdminAnnouncements />} />
                 
                 {/* Guest Routes */}
                 <Route path="/event/:eventId" element={<EventHome />} />

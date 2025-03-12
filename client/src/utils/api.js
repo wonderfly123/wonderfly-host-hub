@@ -131,35 +131,67 @@ export const getEventOrders = async (eventId) => {
   return res.data;
 };
 
-// Music API calls
-export const searchTracks = async (query) => {
-  const res = await api.get(`/music/search?query=${query}`);
-  return res.data;
+// Spotify/Music API calls
+export const generateSpotifyAuthUrl = async (eventId) => {
+  try {
+    const response = await api.get(`/music/${eventId}/spotify-auth-url`);
+    return response.data.authUrl;
+  } catch (error) {
+    console.error('Error generating Spotify auth URL:', error);
+    throw error;
+  }
 };
 
-export const getEventPlaylist = async (eventId) => {
-  const res = await api.get(`/music/event/${eventId}/playlist`);
-  return res.data;
+export const searchTracks = async (eventId, query) => {
+  try {
+    const response = await api.get(`/music/${eventId}/search`, { 
+      params: { query } 
+    });
+    return response.data.tracks;
+  } catch (error) {
+    console.error('Error searching tracks:', error);
+    throw error;
+  }
 };
 
-export const updateEventPlaylist = async (eventId, playlistId) => {
-  const res = await api.put(`/music/event/${eventId}/playlist`, { playlistId });
-  return res.data;
+export const addTrackToQueue = async (eventId, trackUri) => {
+  try {
+    const response = await api.post(`/music/${eventId}/queue`, { trackUri });
+    return response.data;
+  } catch (error) {
+    console.error('Error adding track to queue:', error);
+    throw error;
+  }
+};
+
+export const getCurrentPlayback = async (eventId) => {
+  try {
+    const response = await api.get(`/music/${eventId}/playback`);
+    return response.data.playbackState;
+  } catch (error) {
+    console.error('Error getting current playback:', error);
+    throw error;
+  }
 };
 
 export const getVotingQueue = async (eventId) => {
-  const res = await api.get(`/music/event/${eventId}/queue`);
-  return res.data;
-};
-
-export const addTrackToQueue = async (eventId, trackData) => {
-  const res = await api.post(`/music/event/${eventId}/queue`, trackData);
-  return res.data;
+  try {
+    const response = await api.get(`/music/event/${eventId}/queue`);
+    return response.data;
+  } catch (error) {
+    console.error('Error getting voting queue:', error);
+    throw error;
+  }
 };
 
 export const voteForTrack = async (eventId, trackId) => {
-  const res = await api.post(`/music/event/${eventId}/queue/${trackId}/vote`);
-  return res.data;
+  try {
+    const response = await api.post(`/music/event/${eventId}/queue/${trackId}/vote`);
+    return response.data;
+  } catch (error) {
+    console.error('Error voting for track:', error);
+    throw error;
+  }
 };
 
 // Poll API calls
@@ -185,42 +217,63 @@ export const closePoll = async (pollId) => {
 
 // Timeline API calls
 export const createTimelineItem = async (timelineItemData) => {
-  const res = await api.post('/timeline', timelineItemData);
-  return res.data;
+  try {
+    const formattedData = {
+      ...timelineItemData,
+      startTime: timelineItemData.startTime instanceof Date 
+        ? timelineItemData.startTime.toISOString() 
+        : timelineItemData.startTime,
+      endTime: timelineItemData.endTime instanceof Date 
+        ? timelineItemData.endTime.toISOString() 
+        : timelineItemData.endTime
+    };
+    
+    const res = await api.post('/timeline', formattedData);
+    return res.data;
+  } catch (error) {
+    console.error('Error creating timeline item:', error);
+    throw error;
+  }
 };
 
 export const getEventTimeline = async (eventId) => {
   try {
-    console.log('API call: getEventTimeline for event:', eventId);
-    console.log('Current auth headers:', api.defaults.headers.common['Authorization'] ? 'Token exists' : 'No token');
-    
-    // Try both versions of the endpoint
-    let response;
-    try {
-      console.log('Trying endpoint: /timeline/event/' + eventId);
-      response = await api.get(`/timeline/event/${eventId}`);
-    } catch (firstError) {
-      console.log('First endpoint failed:', firstError.message);
-      console.log('Trying alternate endpoint: /timeline/' + eventId);
-      response = await api.get(`/timeline/${eventId}`);
-    }
-    
-    console.log('Timeline data received:', response.data);
+    const response = await api.get(`/timeline/event/${eventId}`);
     return response.data;
   } catch (error) {
-    console.error('Error fetching timeline:', error.response?.data || error.message);
+    console.error('Error fetching timeline:', error);
     throw error;
   }
 };
 
 export const updateTimelineItem = async (itemId, timelineItemData) => {
-  const res = await api.put(`/timeline/${itemId}`, timelineItemData);
-  return res.data;
+  try {
+    const formattedData = {
+      ...timelineItemData,
+      startTime: timelineItemData.startTime instanceof Date 
+        ? timelineItemData.startTime.toISOString() 
+        : timelineItemData.startTime,
+      endTime: timelineItemData.endTime instanceof Date 
+        ? timelineItemData.endTime.toISOString() 
+        : timelineItemData.endTime
+    };
+    
+    const res = await api.put(`/timeline/${itemId}`, formattedData);
+    return res.data;
+  } catch (error) {
+    console.error('Error updating timeline item:', error);
+    throw error;
+  }
 };
 
 export const deleteTimelineItem = async (itemId) => {
-  const res = await api.delete(`/timeline/${itemId}`);
-  return res.data;
+  try {
+    const res = await api.delete(`/timeline/${itemId}`);
+    return res.data;
+  } catch (error) {
+    console.error('Error deleting timeline item:', error);
+    throw error;
+  }
 };
 
 // Notification API calls
@@ -240,8 +293,13 @@ export const markAllNotificationsAsRead = async () => {
 };
 
 export const createAnnouncement = async (announcementData) => {
-  const res = await api.post('/notifications/announcement', announcementData);
-  return res.data;
+  try {
+    const res = await api.post('/notifications/announcement', announcementData);
+    return res.data;
+  } catch (error) {
+    console.error('Error creating announcement:', error);
+    throw error;
+  }
 };
 
 // Create API object
@@ -261,11 +319,11 @@ const apiObject = {
   getOrderDetails,
   updateOrderStatus,
   getEventOrders,
+  generateSpotifyAuthUrl,
   searchTracks,
-  getEventPlaylist,
-  updateEventPlaylist,
-  getVotingQueue,
   addTrackToQueue,
+  getCurrentPlayback,
+  getVotingQueue,
   voteForTrack,
   createPoll,
   getEventPolls,

@@ -1,5 +1,5 @@
 // src/contexts/NotificationContext.js
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { AuthContext } from './AuthContext';
 import { getUserNotifications, markNotificationAsRead, markAllNotificationsAsRead } from '../utils/api';
@@ -7,28 +7,34 @@ import { getUserNotifications, markNotificationAsRead, markAllNotificationsAsRea
 export const NotificationContext = createContext();
 
 export const NotificationProvider = ({ children }) => {
-  const { user } = useContext(AuthContext);
+  const { user, token } = useContext(AuthContext);
   const [notifications, setNotifications] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [socket, setSocket] = useState(null);
+  const socketRef = useRef(null);
 
   // Initialize socket connection
   useEffect(() => {
-    if (user) {
-      const newSocket = io('http://localhost:5001');
-      setSocket(newSocket);
+    if (user && token) {
+      const newSocket = io('http://localhost:5002', {
+        auth: { token }
+      });
+      socketRef.current = newSocket;
 
       if (user.currentEvent) {
         // Join event room
         newSocket.emit('join-event', user.currentEvent.id);
+        console.log(`Joined event room: ${user.currentEvent.id}`);
       }
 
       // Join user's personal room
       newSocket.emit('join-user', user.id);
+      console.log(`Joined user room: ${user.id}`);
 
       // Listen for new notifications
       newSocket.on('new-notification', (notification) => {
+        console.log('Received new notification:', notification);
         setNotifications(prev => [notification, ...prev]);
         setUnreadCount(prev => prev + 1);
       });
@@ -36,14 +42,19 @@ export const NotificationProvider = ({ children }) => {
       newSocket.on('announcement', (announcement) => {
         // Handle event-wide announcements
         console.log('Received announcement:', announcement);
+        setAnnouncements(prev => [announcement, ...prev]);
+        // No need to increment unread count as this will come as a notification as well
       });
 
       // Clean up on unmount
       return () => {
-        newSocket.disconnect();
+        if (socketRef.current) {
+          socketRef.current.disconnect();
+          socketRef.current = null;
+        }
       };
     }
-  }, [user]);
+  }, [user, token]);
 
   // Fetch notifications when user changes
   useEffect(() => {
@@ -51,6 +62,7 @@ export const NotificationProvider = ({ children }) => {
       fetchNotifications();
     } else {
       setNotifications([]);
+      setAnnouncements([]);
       setUnreadCount(0);
     }
   }, [user]);
@@ -59,7 +71,14 @@ export const NotificationProvider = ({ children }) => {
     try {
       setLoading(true);
       const response = await getUserNotifications();
+      
+      // Filter out announcements for the announcements section
+      const announcementNotifications = response.notifications.filter(
+        n => n.type === 'info' || n.type === 'warning'
+      );
+      
       setNotifications(response.notifications || []);
+      setAnnouncements(announcementNotifications || []);
       setUnreadCount(response.notifications.filter(n => !n.read).length);
     } catch (error) {
       console.error('Error fetching notifications:', error);
@@ -100,6 +119,7 @@ export const NotificationProvider = ({ children }) => {
     <NotificationContext.Provider
       value={{
         notifications,
+        announcements,
         unreadCount,
         loading,
         fetchNotifications,

@@ -18,6 +18,23 @@ const pollSchema = new mongoose.Schema({
       default: 0
     }
   }],
+  type: {
+    type: String,
+    enum: ['general', 'activity', 'music', 'food'],
+    default: 'general'
+  },
+  activityOptions: [{
+    timelineItem: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'TimelineItem'
+    },
+    details: {
+      time: String,
+      location: String,
+      description: String
+    }
+  }],
+  autoCloseAt: Date,
   isActive: {
     type: Boolean,
     default: true

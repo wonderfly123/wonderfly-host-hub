@@ -1,4 +1,4 @@
-// src/components/events/EventHome.js
+// client/src/components/events/EventHome.js
 import React, { useState, useEffect, useContext } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
@@ -14,7 +14,8 @@ import {
   Avatar,
   Divider,
   CircularProgress,
-  Alert
+  Alert,
+  Chip
 } from '@mui/material';
 import {
   MusicNote as MusicIcon,
@@ -23,17 +24,18 @@ import {
   Event as EventIcon,
   Timeline as TimelineIcon,
   Poll as PollIcon,
-  Schedule as ScheduleIcon
+  Schedule as ScheduleIcon,
+  Info as InfoIcon,
+  Warning as WarningIcon
 } from '@mui/icons-material';
-import { getEventById, getEventTimeline, getUserNotifications } from '../../utils/api';
-import { AuthContext } from '../../contexts/AuthContext';
+import { getEventById, getEventTimeline } from '../../utils/api';
+import { NotificationContext } from '../../contexts/NotificationContext';
 
 const EventHome = () => {
   const { eventId } = useParams();
-  const { user } = useContext(AuthContext);
+  const { announcements } = useContext(NotificationContext);
   const [event, setEvent] = useState(null);
   const [timeline, setTimeline] = useState([]);
-  const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -44,13 +46,9 @@ const EventHome = () => {
         const eventResponse = await getEventById(eventId);
         setEvent(eventResponse.event);
         
-        // Get upcoming timeline items
+        // Get timeline data
         const timelineResponse = await getEventTimeline(eventId);
         setTimeline(timelineResponse.timelineItems || []);
-        
-        // Get notifications
-        const notificationsResponse = await getUserNotifications();
-        setNotifications(notificationsResponse.notifications || []);
       } catch (error) {
         console.error('Error fetching event data:', error);
         setError('Failed to load event data. Please try again later.');
@@ -62,7 +60,7 @@ const EventHome = () => {
     fetchEventData();
   }, [eventId]);
 
-  // Get upcoming items (next 3)
+  // Get upcoming items (next 3) - Updated with better sorting
   const upcomingItems = timeline
     .filter(item => new Date(item.startTime) > new Date())
     .sort((a, b) => new Date(a.startTime) - new Date(b.startTime))
@@ -84,6 +82,17 @@ const EventHome = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  // Get icon based on announcement type
+  const getAnnouncementIcon = (type) => {
+    switch (type) {
+      case 'warning':
+        return <WarningIcon color="warning" />;
+      case 'info':
+      default:
+        return <InfoIcon color="primary" />;
+    }
   };
 
   if (loading) {
@@ -235,7 +244,7 @@ const EventHome = () => {
         </Grid>
       </Grid>
 
-      {/* Upcoming Timeline */}
+      {/* Upcoming Timeline and Notifications */}
       <Grid container spacing={4}>
         <Grid item xs={12} md={6}>
           <Paper elevation={3} sx={{ p: 3 }}>
@@ -285,23 +294,46 @@ const EventHome = () => {
           </Paper>
         </Grid>
         
-        {/* Notifications */}
+        {/* Announcements */}
         <Grid item xs={12} md={6}>
           <Paper elevation={3} sx={{ p: 3 }}>
             <Typography variant="h5" gutterBottom>
               Announcements
             </Typography>
             
-            {notifications.length > 0 ? (
+            {announcements && announcements.length > 0 ? (
               <Box>
-                {notifications.map((notification) => (
-                  <Box key={notification._id} sx={{ mb: 2, pb: 2, borderBottom: '1px solid #eee' }}>
-                    <Typography variant="h6">{notification.title}</Typography>
+                {announcements.map((announcement) => (
+                  <Box 
+                    key={announcement._id} 
+                    sx={{ 
+                      mb: 2, 
+                      pb: 2, 
+                      borderBottom: '1px solid #eee',
+                      backgroundColor: announcement.type === 'warning' ? 'rgba(255, 152, 0, 0.05)' : 'transparent',
+                      p: 2,
+                      borderRadius: 1
+                    }}
+                  >
+                    <Box display="flex" alignItems="center" mb={1}>
+                      {getAnnouncementIcon(announcement.type)}
+                      <Typography variant="h6" sx={{ ml: 1 }}>
+                        {announcement.title}
+                      </Typography>
+                      {announcement.type === 'warning' && (
+                        <Chip 
+                          label="Important" 
+                          color="warning" 
+                          size="small" 
+                          sx={{ ml: 'auto' }}
+                        />
+                      )}
+                    </Box>
                     <Typography variant="body2" color="textSecondary" gutterBottom>
-                      {new Date(notification.createdAt).toLocaleString()}
+                      {new Date(announcement.createdAt).toLocaleString()}
                     </Typography>
                     <Typography variant="body1">
-                      {notification.message}
+                      {announcement.message}
                     </Typography>
                   </Box>
                 ))}

@@ -48,7 +48,7 @@ exports.markAsRead = async (req, res) => {
 // Create event announcement (admin only)
 exports.createAnnouncement = async (req, res) => {
   try {
-    const { eventId, title, message, eventCode } = req.body;
+    const { eventId, title, message, type = 'info', eventCode } = req.body;
     
     if (!eventId || !title || !message) {
       return res.status(400).json({ message: 'Event ID, title, and message are required' });
@@ -56,6 +56,12 @@ exports.createAnnouncement = async (req, res) => {
     
     // Find all users for this event
     const users = await User.find({ eventCode });
+    
+    if (!users.length) {
+      return res.status(404).json({ message: 'No users found for this event' });
+    }
+    
+    console.log(`Creating announcement for ${users.length} users in event ${eventId}`);
     
     // Create a notification for each user
     const notifications = [];
@@ -65,25 +71,30 @@ exports.createAnnouncement = async (req, res) => {
         event: eventId,
         title,
         message,
-        type: 'info'
+        type: type || 'info',
+        read: false
       });
       
       await notification.save();
       notifications.push(notification);
       
-      // Send real-time notification
+      // Send real-time notification to individual user
       req.app.get('io').to(`user-${user._id}`).emit('new-notification', {
-        id: notification._id,
+        _id: notification._id,
         title: notification.title,
         message: notification.message,
-        type: notification.type
+        type: notification.type,
+        createdAt: notification.createdAt,
+        read: notification.read
       });
     }
     
-    // Send to all users in the event
+    // Also broadcast to event room
     req.app.get('io').to(`event-${eventId}`).emit('announcement', {
       title,
-      message
+      message,
+      type: type || 'info',
+      timestamp: new Date().toISOString()
     });
     
     res.status(201).json({

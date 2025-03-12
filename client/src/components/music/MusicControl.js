@@ -1,130 +1,164 @@
-// src/components/music/MusicControl.js
+// client/src/components/music/MusicControl.js
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import {
-  Container,
-  Typography,
-  Paper,
-  Box,
-  TextField,
-  Button,
-  List,
-  ListItem,
-  ListItemAvatar,
-  ListItemText,
-  Avatar,
-  IconButton,
-  Grid,
-  Divider,
+import { 
+  Container, 
+  Typography, 
+  Paper, 
+  Box, 
+  TextField, 
+  Button, 
+  List, 
+  ListItem, 
+  ListItemAvatar, 
+  ListItemText, 
+  Avatar, 
+  IconButton, 
+  Grid, 
+  Divider, 
   CircularProgress,
-  Alert,
-  Chip
+  Alert 
 } from '@mui/material';
-import {
-  Search as SearchIcon,
-  Add as AddIcon,
-  ThumbUp as ThumbUpIcon,
-  MusicNote as MusicNoteIcon
+import { 
+  Search as SearchIcon, 
+  Add as AddIcon, 
+  MusicNote as MusicNoteIcon 
 } from '@mui/icons-material';
-import { searchTracks, getVotingQueue, addTrackToQueue, voteForTrack } from '../../utils/api';
+
+import api from '../../utils/api';
 import { io } from 'socket.io-client';
 
 const MusicControl = () => {
   const { eventId } = useParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
-  const [queue, setQueue] = useState({ tracks: [], currentTrack: null });
   const [searching, setSearching] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [currentTrack, setCurrentTrack] = useState(null);
+  const [votingQueue, setVotingQueue] = useState([]);
   const [socket, setSocket] = useState(null);
 
+  // Initialize socket connection
   useEffect(() => {
-    // Initialize socket connection
-    const newSocket = io('http://localhost:5001');
-    setSocket(newSocket);
+    // Create socket connection
+    const newSocket = io('http://localhost:5001', {
+      auth: { token: localStorage.getItem('token') }
+    });
 
     // Join event room
     newSocket.emit('join-event', eventId);
 
     // Listen for queue updates
     newSocket.on('queue-updated', () => {
-      fetchQueue();
+      fetchVotingQueue();
     });
 
-    // Clean up on unmount
+    setSocket(newSocket);
+
+    // Cleanup on unmount
     return () => {
-      newSocket.disconnect();
+      if (newSocket) {
+        newSocket.disconnect();
+      }
     };
   }, [eventId]);
 
+  // Fetch initial data
   useEffect(() => {
-    fetchQueue();
+    const fetchInitialData = async () => {
+      try {
+        // Fetch current playback
+        const playbackResponse = await api.getCurrentPlayback(eventId);
+        setCurrentTrack(playbackResponse?.item);
+
+        // Fetch voting queue
+        await fetchVotingQueue();
+
+        setLoading(false);
+      } catch (err) {
+        setError('Spotify not connected or an error occurred');
+        setLoading(false);
+      }
+    };
+
+    fetchInitialData();
   }, [eventId]);
 
-  const fetchQueue = async () => {
+  // Fetch voting queue
+  const fetchVotingQueue = async () => {
     try {
-      setLoading(true);
-      const response = await getVotingQueue(eventId);
-      setQueue(response.queue);
+      const queueResponse = await api.getVotingQueue(eventId);
+      setVotingQueue(queueResponse.tracks);
     } catch (error) {
-      console.error('Error fetching queue:', error);
-      setError('Failed to load music queue. Please try again later.');
-    } finally {
-      setLoading(false);
+      console.error('Error fetching voting queue:', error);
     }
   };
 
-  const handleSearch = async () => {
+  // Search tracks
+  const handleSearchTracks = async () => {
     if (!searchQuery.trim()) return;
 
     try {
       setSearching(true);
       setError(null);
-      const response = await searchTracks(searchQuery);
-      setSearchResults(response.tracks || []);
+      const tracks = await api.searchTracks(eventId, searchQuery);
+      setSearchResults(tracks);
     } catch (error) {
       console.error('Error searching tracks:', error);
-      setError('Failed to search tracks. Please try again later.');
+      setError('Failed to search tracks');
     } finally {
       setSearching(false);
     }
   };
 
+  // Add track to queue
   const handleAddToQueue = async (track) => {
     try {
-      await addTrackToQueue(eventId, {
-        trackId: track.id,
-        name: track.name,
-        artists: track.artists,
-        imageUrl: track.imageUrl
-      });
+      await api.addTrackToQueue(eventId, track.uri);
       
-      // Queue will be updated via socket
+      // Remove added track from search results
+      setSearchResults(prev => 
+        prev.filter(t => t.uri !== track.uri)
+      );
+      
+      // Optional: Show success message
+      setError('Track added to queue successfully');
     } catch (error) {
       console.error('Error adding track to queue:', error);
-      setError('Failed to add track to queue. Please try again later.');
+      setError('Failed to add track to queue');
     }
   };
 
-  const handleVote = async (trackId) => {
+  // Vote for track
+  const handleVoteForTrack = async (trackId) => {
     try {
-      await voteForTrack(eventId, trackId);
-      
-      // Queue will be updated via socket
+      await api.voteForTrack(eventId, trackId);
     } catch (error) {
       console.error('Error voting for track:', error);
-      setError('Failed to vote for track. Please try again later.');
+      setError('Failed to vote for track');
     }
   };
 
-  // Format duration from milliseconds to mm:ss
+  // Format duration
   const formatDuration = (ms) => {
     const minutes = Math.floor(ms / 60000);
     const seconds = ((ms % 60000) / 1000).toFixed(0);
     return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
   };
 
+  // Render loading state
+  if (loading) {
+    return (
+      <Container maxWidth="lg">
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+          <CircularProgress />
+        </Box>
+      </Container>
+    );
+  }
+
+  // Main render
   return (
     <Container maxWidth="lg">
       <Box mt={4} mb={4}>
@@ -132,78 +166,72 @@ const MusicControl = () => {
           Music Control
         </Typography>
         <Typography variant="subtitle1" color="textSecondary" paragraph>
-          Search for songs and vote on what plays next.
+          Search for songs, add to queue, and vote on tracks
         </Typography>
-      </Box>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      )}
-
-      {/* Current Track */}
-      <Paper elevation={3} sx={{ p: 3, mb: 4 }}>
-        <Typography variant="h6" gutterBottom>
-          Now Playing
-        </Typography>
-        {queue.currentTrack ? (
-          <Box display="flex" alignItems="center">
-            <Avatar
-              src={queue.currentTrack.imageUrl}
-              variant="rounded"
-              sx={{ width: 80, height: 80, mr: 2 }}
-            >
-              <MusicNoteIcon />
-            </Avatar>
-            <Box>
-              <Typography variant="h6">{queue.currentTrack.name}</Typography>
-              <Typography variant="subtitle1" color="textSecondary">
-                {queue.currentTrack.artists}
-              </Typography>
-            </Box>
-          </Box>
-        ) : (
-          <Typography variant="body1" color="textSecondary">
-            No track is currently playing.
-          </Typography>
+        {error && (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {error}
+          </Alert>
         )}
-      </Paper>
 
-      <Grid container spacing={4}>
-        {/* Track Search */}
-        <Grid item xs={12} md={6}>
-          <Paper elevation={3} sx={{ p: 3, height: '100%' }}>
-            <Typography variant="h6" gutterBottom>
-              Search Tracks
-            </Typography>
-            <Box display="flex" mb={2}>
-              <TextField
-                fullWidth
-                variant="outlined"
-                placeholder="Search for a song or artist"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-              />
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleSearch}
-                disabled={searching || !searchQuery.trim()}
-                startIcon={searching ? <CircularProgress size={20} /> : <SearchIcon />}
-                sx={{ ml: 1 }}
+        {/* Current Track */}
+        <Paper elevation={3} sx={{ p: 3, mb: 4 }}>
+          <Typography variant="h6" gutterBottom>
+            Now Playing
+          </Typography>
+          {currentTrack ? (
+            <Box display="flex" alignItems="center">
+              <Avatar
+                src={currentTrack.album?.images?.[0]?.url}
+                variant="rounded"
+                sx={{ width: 80, height: 80, mr: 2 }}
               >
-                {searching ? 'Searching...' : 'Search'}
-              </Button>
-            </Box>
-
-            {/* Search Results */}
-            {searching ? (
-              <Box display="flex" justifyContent="center" my={4}>
-                <CircularProgress />
+                <MusicNoteIcon />
+              </Avatar>
+              <Box>
+                <Typography variant="h6">{currentTrack.name}</Typography>
+                <Typography variant="subtitle1" color="textSecondary">
+                  {currentTrack.artists?.map(artist => artist.name).join(', ')}
+                </Typography>
               </Box>
-            ) : (
+            </Box>
+          ) : (
+            <Typography variant="body1" color="textSecondary">
+              No track is currently playing.
+            </Typography>
+          )}
+        </Paper>
+
+        <Grid container spacing={3}>
+          {/* Track Search */}
+          <Grid item xs={12} md={6}>
+            <Paper elevation={3} sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Search Tracks
+              </Typography>
+              <Box display="flex" mb={2}>
+                <TextField
+                  fullWidth
+                  variant="outlined"
+                  placeholder="Search for a song or artist"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSearchTracks()}
+                />
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleSearchTracks}
+                  disabled={searching || !searchQuery.trim()}
+                  startIcon={searching ? <CircularProgress size={20} /> : <SearchIcon />}
+                  sx={{ ml: 1 }}
+                >
+                  {searching ? 'Searching...' : 'Search'}
+                </Button>
+              </Box>
+
+              {/* Search Results */}
               <List>
                 {searchResults.length === 0 ? (
                   <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 2 }}>
@@ -253,39 +281,37 @@ const MusicControl = () => {
                   ))
                 )}
               </List>
-            )}
-          </Paper>
-        </Grid>
+            </Paper>
+          </Grid>
 
-        {/* Voting Queue */}
-        <Grid item xs={12} md={6}>
-          <Paper elevation={3} sx={{ p: 3, height: '100%' }}>
-            <Typography variant="h6" gutterBottom>
-              Up Next
-            </Typography>
-            
-            {loading ? (
-              <Box display="flex" justifyContent="center" my={4}>
-                <CircularProgress />
-              </Box>
-            ) : queue.tracks && queue.tracks.length > 0 ? (
+          {/* Voting Queue */}
+          <Grid item xs={12} md={6}>
+            <Paper elevation={3} sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Track Queue
+              </Typography>
               <List>
-                {[...queue.tracks]
-                  .sort((a, b) => b.votes - a.votes)
-                  .map((track) => (
+                {votingQueue.length === 0 ? (
+                  <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 2 }}>
+                    No tracks in the queue.
+                  </Typography>
+                ) : (
+                  votingQueue.map((track) => (
                     <React.Fragment key={track.trackId}>
                       <ListItem
                         secondaryAction={
-                          <IconButton 
-                            edge="end" 
-                            color="primary"
-                            onClick={() => handleVote(track.trackId)}
-                          >
-                            <ThumbUpIcon />
-                            <Typography variant="caption" sx={{ ml: 0.5 }}>
-                              {track.votes}
+                          <Box display="flex" alignItems="center">
+                            <Typography variant="body2" sx={{ mr: 1 }}>
+                              {track.votes} votes
                             </Typography>
-                          </IconButton>
+                            <IconButton 
+                              edge="end" 
+                              color="primary"
+                              onClick={() => handleVoteForTrack(track.trackId)}
+                            >
+                              <AddIcon />
+                            </IconButton>
+                          </Box>
                         }
                       >
                         <ListItemAvatar>
@@ -303,16 +329,13 @@ const MusicControl = () => {
                       </ListItem>
                       <Divider component="li" />
                     </React.Fragment>
-                  ))}
+                  ))
+                )}
               </List>
-            ) : (
-              <Typography variant="body1" color="textSecondary" align="center" sx={{ py: 4 }}>
-                No tracks in the queue. Search and add some tracks!
-              </Typography>
-            )}
-          </Paper>
+            </Paper>
+          </Grid>
         </Grid>
-      </Grid>
+      </Box>
     </Container>
   );
 };

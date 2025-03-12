@@ -22,7 +22,8 @@ import {
   MusicNote as MusicIcon, 
   Restaurant as OrderIcon,
   Timeline as TimelineIcon,
-  Poll as PollIcon
+  Poll as PollIcon,
+  Notifications as NotificationsIcon
 } from '@mui/icons-material';
 import { AuthContext } from '../../contexts/AuthContext';
 import { getEvents } from '../../utils/api';
@@ -261,6 +262,28 @@ const Dashboard = () => {
                 <Typography variant="h6">Timeline</Typography>
                 <Typography variant="body2" color="textSecondary" paragraph>
                   Create and manage event schedules.
+                </Typography>
+              </Paper>
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={3}>
+              <Paper 
+                elevation={2} 
+                sx={{ 
+                  p: 2, 
+                  textAlign: 'center', 
+                  height: '100%', 
+                  cursor: 'pointer',
+                  '&:hover': { 
+                    boxShadow: 6 
+                  } 
+                }}
+                onClick={() => handleFeatureClick('/announcements')}
+              >
+                <NotificationsIcon color="primary" sx={{ fontSize: 40, my: 1 }} />
+                <Typography variant="h6">Announcements</Typography>
+                <Typography variant="body2" color="textSecondary" paragraph>
+                  Send notifications to all event guests.
                 </Typography>
               </Paper>
             </Grid>
