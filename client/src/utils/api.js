@@ -142,6 +142,26 @@ export const generateSpotifyAuthUrl = async (eventId) => {
   }
 };
 
+export const getSpotifyDevices = async (eventId) => {
+  try {
+    const response = await api.get(`/music/${eventId}/devices`);
+    return response.data.devices;
+  } catch (error) {
+    console.error('Error fetching Spotify devices:', error);
+    throw error;
+  }
+};
+
+export const selectPlaybackDevice = async (eventId, deviceId) => {
+  try {
+    const response = await api.post(`/music/device`, { eventId, deviceId });
+    return response.data;
+  } catch (error) {
+    console.error('Error selecting playback device:', error);
+    throw error;
+  }
+};
+
 export const searchTracks = async (eventId, query) => {
   try {
     const response = await api.get(`/music/${eventId}/search`, { 
@@ -154,9 +174,12 @@ export const searchTracks = async (eventId, query) => {
   }
 };
 
-export const addTrackToQueue = async (eventId, trackUri) => {
+export const addTrackToQueue = async (eventId, trackUri, deviceId = null) => {
   try {
-    const response = await api.post(`/music/${eventId}/queue`, { trackUri });
+    const response = await api.post(`/music/${eventId}/queue`, { 
+      trackUri,
+      deviceId 
+    });
     return response.data;
   } catch (error) {
     console.error('Error adding track to queue:', error);
@@ -190,6 +213,44 @@ export const voteForTrack = async (eventId, trackId) => {
     return response.data;
   } catch (error) {
     console.error('Error voting for track:', error);
+    throw error;
+  }
+};
+
+// Get User's Playlists
+export const getUserPlaylists = async (eventId) => {
+  try {
+    const response = await api.get(`/music/${eventId}/playlists`);
+    return response.data.playlists;
+  } catch (error) {
+    console.error('Error fetching user playlists:', error);
+    throw error;
+  }
+};
+
+// Get Playlist Tracks
+export const getPlaylistTracks = async (eventId, playlistId) => {
+  try {
+    const response = await api.get(`/music/${eventId}/playlists/${playlistId}/tracks`);
+    return response.data.tracks;
+  } catch (error) {
+    console.error('Error fetching playlist tracks:', error);
+    throw error;
+  }
+};
+
+// Updated playbackControl to include deviceId
+export const playbackControl = async (eventId, action, contextUri = null, trackUri = null, deviceId = null) => {
+  try {
+    const response = await api.post(`/music/${eventId}/playback/control`, {
+      action,
+      contextUri,
+      trackUri,
+      deviceId
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error controlling playback:', error);
     throw error;
   }
 };
@@ -320,11 +381,16 @@ const apiObject = {
   updateOrderStatus,
   getEventOrders,
   generateSpotifyAuthUrl,
+  getSpotifyDevices,
+  selectPlaybackDevice,
   searchTracks,
   addTrackToQueue,
   getCurrentPlayback,
   getVotingQueue,
   voteForTrack,
+  getUserPlaylists,
+  getPlaylistTracks,
+  playbackControl,
   createPoll,
   getEventPolls,
   votePoll,
