@@ -90,10 +90,12 @@ exports.createTimelineItem = async (req, res) => {
 exports.getEventTimeline = async (req, res) => {
   try {
     const { eventId } = req.params;
+    console.log('Getting timeline for event:', eventId, 'User:', req.userId);
     
     // Verify event exists
     const event = await Event.findById(eventId);
     if (!event) {
+      console.log('Event not found for timeline request:', eventId);
       return res.status(404).json({ message: 'Event not found' });
     }
     
@@ -101,6 +103,7 @@ exports.getEventTimeline = async (req, res) => {
     const timelineItems = await TimelineItem.find({ event: eventId })
       .sort({ startTime: 1 });
     
+    console.log(`Found ${timelineItems.length} timeline items for event ${eventId}`);
     res.status(200).json({ timelineItems });
   } catch (error) {
     console.error('Get event timeline error:', error);

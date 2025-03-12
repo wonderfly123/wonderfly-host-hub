@@ -1,6 +1,6 @@
 // src/components/admin/Dashboard.js
 import React, { useState, useEffect, useContext } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   Container, 
   Grid, 
@@ -32,6 +32,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const { user } = useContext(AuthContext);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -49,6 +50,18 @@ const Dashboard = () => {
 
     fetchEvents();
   }, []);
+
+  // Add this function to handle feature navigation
+  const handleFeatureClick = (featurePath) => {
+    // If there are no events, prompt to create one first
+    if (events.length === 0) {
+      navigate('/admin/events/create');
+      return;
+    }
+    
+    // Navigate to the feature for the first event
+    navigate(`/admin/events/${events[0].id}${featurePath}`);
+  };
 
   if (loading) {
     return (
@@ -156,7 +169,7 @@ const Dashboard = () => {
                             component={Link} 
                             to={`/admin/events/${event.id}/edit`}
                           >
-                            Manage
+                            MANAGE
                           </Button>
                         </CardActions>
                       </Card>
@@ -187,7 +200,19 @@ const Dashboard = () => {
           </Typography>
           <Grid container spacing={3}>
             <Grid item xs={12} sm={6} md={3}>
-              <Paper elevation={2} sx={{ p: 2, textAlign: 'center', height: '100%' }}>
+              <Paper 
+                elevation={2} 
+                sx={{ 
+                  p: 2, 
+                  textAlign: 'center', 
+                  height: '100%', 
+                  cursor: 'pointer',
+                  '&:hover': { 
+                    boxShadow: 6 
+                  }
+                }}
+                onClick={() => handleFeatureClick('/music')}
+              >
                 <MusicIcon color="primary" sx={{ fontSize: 40, my: 1 }} />
                 <Typography variant="h6">Music</Typography>
                 <Typography variant="body2" color="textSecondary" paragraph>
@@ -197,7 +222,19 @@ const Dashboard = () => {
             </Grid>
             
             <Grid item xs={12} sm={6} md={3}>
-              <Paper elevation={2} sx={{ p: 2, textAlign: 'center', height: '100%' }}>
+              <Paper 
+                elevation={2} 
+                sx={{ 
+                  p: 2, 
+                  textAlign: 'center', 
+                  height: '100%', 
+                  cursor: 'pointer',
+                  '&:hover': { 
+                    boxShadow: 6 
+                  } 
+                }}
+                onClick={() => handleFeatureClick('/menu')}
+              >
                 <OrderIcon color="primary" sx={{ fontSize: 40, my: 1 }} />
                 <Typography variant="h6">Orders</Typography>
                 <Typography variant="body2" color="textSecondary" paragraph>
@@ -207,7 +244,19 @@ const Dashboard = () => {
             </Grid>
             
             <Grid item xs={12} sm={6} md={3}>
-              <Paper elevation={2} sx={{ p: 2, textAlign: 'center', height: '100%' }}>
+              <Paper 
+                elevation={2} 
+                sx={{ 
+                  p: 2, 
+                  textAlign: 'center', 
+                  height: '100%', 
+                  cursor: 'pointer',
+                  '&:hover': { 
+                    boxShadow: 6 
+                  } 
+                }}
+                onClick={() => handleFeatureClick('/timeline')}
+              >
                 <TimelineIcon color="primary" sx={{ fontSize: 40, my: 1 }} />
                 <Typography variant="h6">Timeline</Typography>
                 <Typography variant="body2" color="textSecondary" paragraph>
@@ -217,7 +266,19 @@ const Dashboard = () => {
             </Grid>
             
             <Grid item xs={12} sm={6} md={3}>
-              <Paper elevation={2} sx={{ p: 2, textAlign: 'center', height: '100%' }}>
+              <Paper 
+                elevation={2} 
+                sx={{ 
+                  p: 2, 
+                  textAlign: 'center', 
+                  height: '100%', 
+                  cursor: 'pointer',
+                  '&:hover': { 
+                    boxShadow: 6 
+                  } 
+                }}
+                onClick={() => handleFeatureClick('/polls')}
+              >
                 <PollIcon color="primary" sx={{ fontSize: 40, my: 1 }} />
                 <Typography variant="h6">Polls</Typography>
                 <Typography variant="body2" color="textSecondary" paragraph>

@@ -30,9 +30,17 @@ const GuestLogin = () => {
     setError('');
     
     try {
-      const { event } = await guestLogin({ name, eventCode });
-      navigate(`/event/${event.id}`);
+      console.log('Submitting with event code:', eventCode);
+      const result = await guestLogin({ name, eventCode });
+      console.log('Login result:', result);
+      
+      if (result && result.event) {
+        navigate(`/event/${result.event.id}`);
+      } else {
+        throw new Error('Invalid response from server');
+      }
     } catch (error) {
+      console.error('Login error:', error);
       setError(error.response?.data?.message || 'Login failed');
       setOpenAlert(true);
     } finally {

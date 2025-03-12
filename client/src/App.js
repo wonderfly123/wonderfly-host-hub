@@ -1,4 +1,4 @@
-// Updated App.js with NotificationProvider
+// Updated App.js with new admin routes
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
@@ -22,6 +22,11 @@ import EventManagement from './components/admin/EventManagement';
 import CreateEvent from './components/admin/CreateEvent';
 import EditEvent from './components/admin/EditEvent';
 import MenuManagement from './components/admin/MenuManagement';
+
+// New Admin Components
+import AdminMusicControl from './components/admin/AdminMusicControl';
+import AdminTimeline from './components/admin/AdminTimeline';
+import AdminPolls from './components/admin/AdminPolls';
 
 // Event Components
 import EventHome from './components/events/EventHome';
@@ -63,6 +68,10 @@ function App() {
                 <Route path="/admin/events/create" element={<CreateEvent />} />
                 <Route path="/admin/events/:eventId/edit" element={<EditEvent />} />
                 <Route path="/admin/events/:eventId/menu" element={<MenuManagement />} />
+                {/* New Admin Routes */}
+                <Route path="/admin/events/:eventId/music" element={<AdminMusicControl />} />
+                <Route path="/admin/events/:eventId/timeline" element={<AdminTimeline />} />
+                <Route path="/admin/events/:eventId/polls" element={<AdminPolls />} />
                 
                 {/* Guest Routes */}
                 <Route path="/event/:eventId" element={<EventHome />} />

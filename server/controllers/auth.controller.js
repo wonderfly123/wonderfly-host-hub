@@ -1,5 +1,7 @@
+// server/controllers/auth.controller.js
 const jwt = require('jsonwebtoken');
 const User = require('../models/user.model');
+const Event = require('../models/event.model'); // Added Event model import
 
 // Generate JWT token
 const generateToken = (userId) => {
@@ -53,6 +55,13 @@ exports.guestLogin = async (req, res) => {
   try {
     const { eventCode, name } = req.body;
 
+    // First, check if the event exists - using accessCode instead of code
+    const event = await Event.findOne({ accessCode: eventCode });
+    
+    if (!event) {
+      return res.status(404).json({ message: 'Invalid event code' });
+    }
+
     // Create or find guest user
     let guestUser = await User.findOne({ 
       username: `guest_${name}_${eventCode}`,
@@ -83,6 +92,12 @@ exports.guestLogin = async (req, res) => {
         id: guestUser._id,
         username: guestUser.username,
         role: guestUser.role
+      },
+      event: {
+        id: event._id,
+        name: event.name,
+        code: event.accessCode  // Changed from code to accessCode
+        // Add other event fields as needed
       }
     });
   } catch (error) {

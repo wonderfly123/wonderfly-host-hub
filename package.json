@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "server": "nodemon server.js",
-    "client": "cd client && npm start",
+    "client": "cd client && PORT=3000 npm start",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "install-client": "cd client && npm install",
     "build-client": "cd client && npm run build",
@@ -22,9 +22,11 @@
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
+    "@mui/x-date-pickers": "^6.18.2",
     "axios": "^1.8.2",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
+    "date-fns": "^2.30.0",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "express-validator": "^7.2.1",
