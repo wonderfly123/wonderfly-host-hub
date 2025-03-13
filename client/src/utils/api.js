@@ -337,6 +337,37 @@ export const deleteTimelineItem = async (itemId) => {
   }
 };
 
+// Payment API calls
+export const getSquareAppInfo = async () => {
+  try {
+    const response = await api.get('/payments/square-info');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching Square app info:', error);
+    throw error;
+  }
+};
+
+export const processPayment = async (orderId, sourceId) => {
+  try {
+    const response = await api.post('/payments/process', { orderId, sourceId });
+    return response.data;
+  } catch (error) {
+    console.error('Error processing payment:', error);
+    throw error;
+  }
+};
+
+export const getPaymentStatus = async (orderId) => {
+  try {
+    const response = await api.get(`/payments/${orderId}/status`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching payment status:', error);
+    throw error;
+  }
+};
+
 // Notification API calls
 export const getUserNotifications = async () => {
   const res = await api.get('/notifications');
@@ -402,7 +433,10 @@ const apiObject = {
   getUserNotifications,
   markNotificationAsRead,
   markAllNotificationsAsRead,
-  createAnnouncement
+  createAnnouncement,
+  getSquareAppInfo,
+  processPayment,
+  getPaymentStatus
 };
 
 // Export as default

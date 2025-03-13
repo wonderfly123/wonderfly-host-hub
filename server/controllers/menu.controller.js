@@ -58,8 +58,8 @@ exports.getEventMenu = async (req, res) => {
       return res.status(404).json({ message: 'Event not found' });
     }
     
-    // Get menu items
-    const menuItems = await MenuItem.find({ event: eventId, available: true })
+    // Get menu items - remove the available filter for admin views
+    const menuItems = await MenuItem.find({ event: eventId })
       .sort({ category: 1, name: 1 });
     
     // Group by category
@@ -73,6 +73,7 @@ exports.getEventMenu = async (req, res) => {
         description: item.description,
         price: item.price,
         imageUrl: item.imageUrl,
+        available: item.available, // Include the available status
         customizationOptions: item.customizationOptions
       });
       return acc;
@@ -88,7 +89,7 @@ exports.getEventMenu = async (req, res) => {
 // Update menu item (admin only)
 exports.updateMenuItem = async (req, res) => {
   try {
-    const { name, description, price, imageUrl, available, customizationOptions } = req.body;
+    const { name, description, price, category, imageUrl, available, customizationOptions } = req.body;
     
     const menuItem = await MenuItem.findById(req.params.menuItemId);
     
@@ -100,7 +101,8 @@ exports.updateMenuItem = async (req, res) => {
     if (name) menuItem.name = name;
     if (description) menuItem.description = description;
     if (price !== undefined) menuItem.price = price;
-    if (imageUrl) menuItem.imageUrl = imageUrl;
+    if (category) menuItem.category = category; // Add this line to update the category
+    if (imageUrl !== undefined) menuItem.imageUrl = imageUrl;
     if (available !== undefined) menuItem.available = available;
     if (customizationOptions) menuItem.customizationOptions = customizationOptions;
     
@@ -112,6 +114,7 @@ exports.updateMenuItem = async (req, res) => {
         id: menuItem._id,
         name: menuItem.name,
         price: menuItem.price,
+        category: menuItem.category, // Include category in the response
         available: menuItem.available
       }
     });

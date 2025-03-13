@@ -44,7 +44,13 @@ import {
   Storefront as StoreIcon,
   Room as LocationIcon
 } from '@mui/icons-material';
-import { getEventMenu, createOrder, getUserOrders } from '../../utils/api';
+import { 
+  getEventMenu, 
+  createOrder, 
+  getUserOrders, 
+  getSquareAppInfo,
+  processPayment
+} from '../../utils/api';
 
 // TabPanel component
 function TabPanel(props) {
@@ -81,7 +87,8 @@ const OrderSystem = () => {
   });
   const [locationDialog, setLocationDialog] = useState({
     open: false,
-    location: ''
+    location: '',
+    name: ''
   });
   const [orderStatus, setOrderStatus] = useState({
     loading: false,
@@ -90,11 +97,102 @@ const OrderSystem = () => {
   });
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [paymentData, setPaymentData] = useState(null);
+  const [showPayment, setShowPayment] = useState(false);
+  const [currentOrder, setCurrentOrder] = useState(null);
+  const [squareLoaded, setSquareLoaded] = useState(false);
+  const [card, setCard] = useState(null);
+  const [paymentForm, setPaymentForm] = useState(null);
 
   useEffect(() => {
     fetchMenu();
     fetchOrders();
+    fetchSquareInfo();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
+  
+  // Initialize Square when payment dialog opens
+  useEffect(() => {
+    if (showPayment && paymentData && !squareLoaded) {
+      // Wait a bit for the dialog to render
+      const timer = setTimeout(() => {
+        initializeSquare();
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showPayment, paymentData, squareLoaded]);
+  
+  const fetchSquareInfo = async () => {
+    try {
+      const response = await getSquareAppInfo();
+      setPaymentData(response);
+    } catch (error) {
+      console.error('Error fetching Square info:', error);
+    }
+  };
+  
+  const initializeSquare = async () => {
+    if (!paymentData) return;
+    
+    try {
+      // Load Square Web Payment SDK
+      const script = document.createElement('script');
+      script.src = 'https://sandbox.web.squarecdn.com/v1/square.js';
+      
+      // Create a promise to handle script loading
+      const scriptLoaded = new Promise((resolve, reject) => {
+        script.onload = resolve;
+        script.onerror = reject;
+      });
+      
+      document.body.appendChild(script);
+      
+      // Wait for script to load
+      await scriptLoaded;
+      
+      if (!window.Square) {
+        console.error('Square library not available');
+        return;
+      }
+      
+      const { applicationId, locationId } = paymentData;
+      console.log('Initializing Square with:', { applicationId, locationId });
+      
+      // Make sure the card container exists
+      const cardContainer = document.getElementById('card-container');
+      if (!cardContainer) {
+        console.error('Card container element not found');
+        return;
+      }
+      
+      try {
+        const payments = window.Square.payments(applicationId, locationId);
+        
+        // Updated card options - remove postalCode option
+        const cardOptions = {
+          style: {
+            input: {
+              backgroundColor: "#FFFFFF",
+              color: "#000000"
+            }
+          }
+        };
+        
+        const cardInstance = await payments.card(cardOptions);
+        await cardInstance.attach('#card-container');
+        
+        setCard(cardInstance);
+        setSquareLoaded(true);
+        console.log('Square card payment form loaded successfully');
+      } catch (error) {
+        console.error('Error initializing Square card:', error);
+      }
+    } catch (error) {
+      console.error('Error loading Square script:', error);
+    }
+  };
 
   const fetchMenu = async () => {
     try {
@@ -156,7 +254,7 @@ const OrderSystem = () => {
 
   const addItemToCart = (item, customizations = []) => {
     const newItem = {
-      menuItemId: item._id,
+      menuItemId: item._id || item.id,
       name: item.name,
       price: item.price,
       quantity: 1,
@@ -169,7 +267,7 @@ const OrderSystem = () => {
 
   const calculateSubtotal = (basePrice, customizations = []) => {
     const customizationTotal = customizations.reduce(
-      (sum, customization) => sum + customization.price, 
+      (sum, customization) => sum + (customization.price || 0), 
       0
     );
     return basePrice + customizationTotal;
@@ -226,19 +324,21 @@ const OrderSystem = () => {
  const handleOpenLocationDialog = () => {
    setLocationDialog({
      open: true,
-     location: ''
+     location: '',
+     name: ''
    });
  };
 
  const handleLocationChange = (e) => {
+   const { name, value } = e.target;
    setLocationDialog(prev => ({
      ...prev,
-     location: e.target.value
+     [name]: value
    }));
  };
 
  const handlePlaceOrder = async () => {
-   if (!locationDialog.location.trim()) return;
+   if (!locationDialog.location.trim() || !locationDialog.name.trim()) return;
    
    try {
      setOrderStatus({
@@ -247,36 +347,34 @@ const OrderSystem = () => {
        error: null
      });
      
-     await createOrder({
+     const response = await createOrder({
        eventId,
        items: cart,
        deliveryLocation: locationDialog.location,
+       customerName: locationDialog.name,
        notes: ''
      });
      
-     // Clear cart and close dialog
-     setCart([]);
-     setLocationDialog({
-       open: false,
-       location: ''
-     });
-     
-     // Set success state and fetch latest orders
-     setOrderStatus({
-       loading: false,
-       success: true,
-       error: null
-     });
-     
-     fetchOrders();
-     
-     // Reset success state after 3 seconds
-     setTimeout(() => {
-       setOrderStatus(prev => ({
-         ...prev,
-         success: false
-       }));
-     }, 3000);
+     // Check if payment is required
+     if (response.order && response.order.requiresPayment) {
+       // Save order information for payment
+       setCurrentOrder(response.order);
+       
+       // Close location dialog and open payment dialog
+       setLocationDialog({ open: false, location: '', name: '' });
+       
+       // Reset loading state before showing payment dialog
+       setOrderStatus({
+         loading: false,
+         success: false,
+         error: null
+       });
+       
+       setShowPayment(true);
+     } else {
+       // No payment needed, clear cart and close dialog
+       handleOrderSuccess();
+     }
      
    } catch (error) {
      console.error('Error placing order:', error);
@@ -284,6 +382,65 @@ const OrderSystem = () => {
        loading: false,
        success: false,
        error: 'Failed to place order. Please try again.'
+     });
+   }
+ };
+ 
+ const handleOrderSuccess = () => {
+   // Clear cart and close dialogs
+   setCart([]);
+   setLocationDialog({ open: false, location: '', name: '' });
+   setShowPayment(false);
+   
+   // Set success state and fetch latest orders
+   setOrderStatus({
+     loading: false,
+     success: true,
+     error: null
+   });
+   
+   fetchOrders();
+   
+   // Reset success state after 3 seconds
+   setTimeout(() => {
+     setOrderStatus(prev => ({
+       ...prev,
+       success: false
+     }));
+   }, 3000);
+ };
+ 
+ const handlePayment = async () => {
+   if (!card || !currentOrder) return;
+   
+   try {
+     setOrderStatus({
+       loading: true,
+       success: false,
+       error: null
+     });
+     
+     // Get payment token from Square
+     const paymentResult = await card.tokenize();
+     
+     if (paymentResult.status === 'OK') {
+       // Process payment with our server
+       await processPayment(
+         currentOrder.id, 
+         paymentResult.token
+       );
+       
+       // Payment successful
+       handleOrderSuccess();
+     } else {
+       throw new Error(paymentResult.errors[0].message);
+     }
+   } catch (error) {
+     console.error('Payment error:', error);
+     setOrderStatus({
+       loading: false,
+       success: false,
+       error: error.message || 'Payment processing failed. Please try again.'
      });
    }
  };
@@ -296,7 +453,7 @@ const OrderSystem = () => {
 
  // Format price as currency
  const formatPrice = (price) => {
-   return `$${price.toFixed(2)}`;
+   return `$${parseFloat(price).toFixed(2)}`;
  };
 
  // Get status chip for orders
@@ -604,7 +761,7 @@ const OrderSystem = () => {
                                {new Date(order.createdAt).toLocaleString()}
                              </Typography>
                              <Typography variant="body2" sx={{ mt: 0.5 }}>
-                               {formatPrice(order.totalAmount)} • {order.items.length} item(s)
+                               {formatPrice(order.totalAmount)} • {order.items ? order.items.length : 0} item(s)
                              </Typography>
                              <Box display="flex" alignItems="center" mt={0.5}>
                                <LocationIcon fontSize="small" sx={{ mr: 0.5 }} color="action" />
@@ -676,21 +833,38 @@ const OrderSystem = () => {
 
      {/* Location Dialog */}
      <Dialog open={locationDialog.open} onClose={() => setLocationDialog(prev => ({ ...prev, open: false }))}>
-       <DialogTitle>Delivery Location</DialogTitle>
+       <DialogTitle>Delivery Information</DialogTitle>
        <DialogContent>
          <Typography variant="body2" color="textSecondary" paragraph>
-           Please provide your table number or location for delivery
+           Please provide your information for delivery
          </Typography>
+         
          <TextField
            autoFocus
            margin="normal"
-           label="Table/Location"
+           name="name"
+           label="Your Name"
            fullWidth
            variant="outlined"
-           value={locationDialog.location}
+           value={locationDialog.name}
            onChange={handleLocationChange}
-           placeholder="e.g., Table 12, Bar Area, etc."
+           placeholder="e.g., John Smith"
          />
+         
+         <FormControl fullWidth margin="normal">
+           <InputLabel id="location-label">Location</InputLabel>
+           <Select
+             labelId="location-label"
+             name="location"
+             value={locationDialog.location}
+             onChange={handleLocationChange}
+             label="Location"
+           >
+             <MenuItem value="Lounge">Lounge</MenuItem>
+             <MenuItem value="Main Floor">Main Floor</MenuItem>
+             <MenuItem value="Main Floor Seating Area">Main Floor Seating Area</MenuItem>
+           </Select>
+         </FormControl>
        </DialogContent>
        <DialogActions>
          <Button onClick={() => setLocationDialog(prev => ({ ...prev, open: false }))}>
@@ -699,10 +873,78 @@ const OrderSystem = () => {
          <Button 
            onClick={handlePlaceOrder} 
            color="primary"
-           disabled={!locationDialog.location.trim() || orderStatus.loading}
+           disabled={!locationDialog.location || !locationDialog.name || orderStatus.loading}
            startIcon={orderStatus.loading ? <CircularProgress size={20} /> : null}
          >
            {orderStatus.loading ? 'Processing...' : 'Confirm Order'}
+         </Button>
+       </DialogActions>
+     </Dialog>
+     
+     {/* Payment Dialog */}
+     <Dialog 
+       open={showPayment} 
+       onClose={() => {
+         // Only allow closing if not processing payment
+         if (!orderStatus.loading) {
+           setShowPayment(false);
+         }
+       }}
+       maxWidth="sm"
+       fullWidth
+     >
+       <DialogTitle>Payment</DialogTitle>
+       <DialogContent>
+         <Typography variant="h6" gutterBottom>
+           Total: {currentOrder ? formatPrice(currentOrder.totalAmount) : '$0.00'}
+         </Typography>
+         
+         <Typography variant="body2" color="textSecondary" paragraph>
+           Please enter your card details to complete your purchase
+         </Typography>
+         
+         {orderStatus.error && (
+           <Alert severity="error" sx={{ mb: 2 }}>
+             {orderStatus.error}
+           </Alert>
+         )}
+         
+         <Box 
+           id="card-container" 
+           sx={{ 
+             border: '1px solid #ccc', 
+             p: 2, 
+             borderRadius: 1,
+             mb: 2,
+             minHeight: '100px'
+           }}
+         >
+           {/* Square Card Component will be mounted here */}
+           {!squareLoaded && (
+             <Box display="flex" justifyContent="center" p={2}>
+               <CircularProgress size={24} />
+             </Box>
+           )}
+         </Box>
+         
+         <Typography variant="caption" color="textSecondary">
+           Your payment information is securely processed by Square.
+         </Typography>
+       </DialogContent>
+       <DialogActions>
+         <Button 
+           onClick={() => setShowPayment(false)}
+           disabled={orderStatus.loading}
+         >
+           Cancel
+         </Button>
+         <Button 
+           onClick={handlePayment} 
+           color="primary"
+           variant="contained"
+           disabled={!squareLoaded || orderStatus.loading}
+         >
+           {orderStatus.loading ? 'Processing...' : 'Pay Now'}
          </Button>
        </DialogActions>
      </Dialog>

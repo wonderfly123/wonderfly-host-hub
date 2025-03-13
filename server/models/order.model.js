@@ -26,7 +26,12 @@ const orderSchema = new mongoose.Schema({
   orderNumber: {
     type: String,
     required: true,
-    unique: true
+    unique: true,
+    default: function() {
+      const timestamp = Date.now().toString();
+      const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+      return `ORD-${timestamp.slice(-6)}-${randomNum}`;
+    }
   },
   event: {
     type: mongoose.Schema.Types.ObjectId,
@@ -39,6 +44,10 @@ const orderSchema = new mongoose.Schema({
     required: true
   },
   items: [orderItemSchema],
+  customerName: {
+    type: String,
+    required: false
+  },
   deliveryLocation: {
     type: String,
     required: true

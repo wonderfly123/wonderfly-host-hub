@@ -6,7 +6,8 @@ const Event = require('../models/event.model');
 // Create a new order
 exports.createOrder = async (req, res) => {
   try {
-    const { eventId, items, deliveryLocation, notes } = req.body;
+    console.log("Creating order with data:", JSON.stringify(req.body, null, 2));
+    const { eventId, items, deliveryLocation, customerName, notes } = req.body;
     
     // Validate inputs
     if (!eventId || !items || items.length === 0 || !deliveryLocation) {
@@ -27,6 +28,7 @@ exports.createOrder = async (req, res) => {
       // Verify menu item exists
       const menuItem = await MenuItem.findById(item.menuItemId);
       if (!menuItem) {
+        console.error(`Menu item not found: ${item.menuItemId}`);
         return res.status(404).json({ message: `Menu item not found: ${item.menuItemId}` });
       }
       
@@ -39,11 +41,13 @@ exports.createOrder = async (req, res) => {
         for (const customization of item.customizations) {
           const menuCustomization = menuItem.customizationOptions.find(c => c.name === customization.name);
           if (!menuCustomization) {
+            console.error(`Invalid customization: ${customization.name}`);
             return res.status(400).json({ message: `Invalid customization: ${customization.name}` });
           }
           
           const option = menuCustomization.options.find(o => o.name === customization.option);
           if (!option) {
+            console.error(`Invalid option: ${customization.option}`);
             return res.status(400).json({ message: `Invalid option: ${customization.option}` });
           }
           
@@ -70,24 +74,34 @@ exports.createOrder = async (req, res) => {
       });
     }
     
+    console.log("Creating order with items:", JSON.stringify(orderItems, null, 2));
+    
     // Create order
     const order = new Order({
       event: eventId,
       user: req.userId,
       items: orderItems,
       deliveryLocation,
+      customerName, // Add customer name
       totalAmount,
       notes,
       paymentStatus: 'pending' // This will be updated after payment processing
     });
     
+    console.log("Saving order");
     await order.save();
+    console.log("Order saved successfully:", order._id);
+    
+    // If we're using Square integration
+    const useSquarePayment = process.env.USE_SQUARE_PAYMENT === 'true';
     
     // Notify admins about new order via socket.io
-    req.app.get('io').to(`event-${eventId}-admin`).emit('new-order', {
-      orderId: order._id,
-      orderNumber: order.orderNumber
-    });
+    if (req.app.get('io')) {
+      req.app.get('io').to(`event-${eventId}-admin`).emit('new-order', {
+        orderId: order._id,
+        orderNumber: order.orderNumber
+      });
+    }
     
     res.status(201).json({
       message: 'Order created successfully',
@@ -95,12 +109,22 @@ exports.createOrder = async (req, res) => {
         id: order._id,
         orderNumber: order.orderNumber,
         totalAmount: order.totalAmount,
-        status: order.status
+        status: order.status,
+        paymentStatus: order.paymentStatus,
+        requiresPayment: useSquarePayment
       }
     });
   } catch (error) {
     console.error('Create order error:', error);
-    res.status(500).json({ message: 'Server error during order creation' });
+    console.error('Error stack:', error.stack);
+    if (error.name === 'ValidationError') {
+      console.error('Validation errors:', JSON.stringify(error.errors, null, 2));
+      return res.status(400).json({ 
+        message: 'Validation error', 
+        errors: error.errors 
+      });
+    }
+    res.status(500).json({ message: 'Server error during order creation', error: error.message });
   }
 };
 
@@ -173,11 +197,13 @@ exports.updateOrderStatus = async (req, res) => {
     await order.save();
     
     // Notify user about order status update
-    req.app.get('io').to(`user-${order.user}`).emit('order-status-updated', {
-      orderId: order._id,
-      orderNumber: order.orderNumber,
-      status: order.status
-    });
+    if (req.app.get('io')) {
+      req.app.get('io').to(`user-${order.user}`).emit('order-status-updated', {
+        orderId: order._id,
+        orderNumber: order.orderNumber,
+        status: order.status
+      });
+    }
     
     res.status(200).json({
       message: 'Order status updated successfully',
@@ -207,6 +233,7 @@ exports.getEventOrders = async (req, res) => {
         id: order._id,
         orderNumber: order.orderNumber,
         username: order.user.username,
+        customerName: order.customerName, // Include customer name in the response
         totalAmount: order.totalAmount,
         status: order.status,
         deliveryLocation: order.deliveryLocation,
