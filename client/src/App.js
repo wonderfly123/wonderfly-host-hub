@@ -1,4 +1,4 @@
-// Updated App.js with new admin routes
+// Updated App.js with event selector routes
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
@@ -22,6 +22,7 @@ import EventManagement from './components/admin/EventManagement';
 import CreateEvent from './components/admin/CreateEvent';
 import EditEvent from './components/admin/EditEvent';
 import MenuManagement from './components/admin/MenuManagement';
+import EventSelector from './components/admin/EventSelector';
 
 // New Admin Components
 import AdminMusicControl from './components/admin/AdminMusicControl';
@@ -69,6 +70,14 @@ function App() {
                 <Route path="/admin/events/create" element={<CreateEvent />} />
                 <Route path="/admin/events/:eventId/edit" element={<EditEvent />} />
                 <Route path="/admin/events/:eventId/menu" element={<MenuManagement />} />
+                
+                {/* Event Selector Routes */}
+                <Route path="/admin/select-event/music" element={<EventSelector featureType="music" />} />
+                <Route path="/admin/select-event/orders" element={<EventSelector featureType="orders" />} />
+                <Route path="/admin/select-event/timeline" element={<EventSelector featureType="timeline" />} />
+                <Route path="/admin/select-event/polls" element={<EventSelector featureType="polls" />} />
+                <Route path="/admin/select-event/announcements" element={<EventSelector featureType="announcements" />} />
+                
                 {/* New Admin Routes */}
                 <Route path="/admin/events/:eventId/music" element={<AdminMusicControl />} />
                 <Route path="/admin/events/:eventId/timeline" element={<AdminTimeline />} />

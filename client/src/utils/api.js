@@ -70,11 +70,15 @@ export const getEventById = async (eventId) => {
 };
 
 export const createEvent = async (eventData) => {
+  console.log('Creating event with data:', eventData);
+  // Make sure eventData includes date, startTime, endTime if provided
   const res = await api.post('/events', eventData);
   return res.data;
 };
 
 export const updateEvent = async (eventId, eventData) => {
+  // Make sure eventData includes date, startTime, endTime if provided
+  console.log('Updating event with data:', eventData);
   const res = await api.put(`/events/${eventId}`, eventData);
   return res.data;
 };
@@ -394,6 +398,63 @@ export const createAnnouncement = async (announcementData) => {
   }
 };
 
+// Facility API calls
+export const getAllFacilities = async () => {
+  try {
+    const res = await api.get('/facilities');
+    return res.data;
+  } catch (error) {
+    console.error('Error fetching facilities:', error);
+    throw error;
+  }
+};
+
+export const getFacilityById = async (facilityId) => {
+  try {
+    const res = await api.get(`/facilities/${facilityId}`);
+    return res.data;
+  } catch (error) {
+    console.error('Error fetching facility:', error);
+    throw error;
+  }
+};
+
+export const createFacility = async (facilityData) => {
+  const res = await api.post('/facilities', facilityData);
+  return res.data;
+};
+
+export const updateFacility = async (facilityId, facilityData) => {
+  const res = await api.put(`/facilities/${facilityId}`, facilityData);
+  return res.data;
+};
+
+export const deleteFacility = async (facilityId) => {
+  const res = await api.delete(`/facilities/${facilityId}`);
+  return res.data;
+};
+
+// Event-Facility API calls
+export const addFacilityToEvent = async (eventId, facilityData) => {
+  const res = await api.post(`/events/${eventId}/facilities`, facilityData);
+  return res.data;
+};
+
+export const removeFacilityFromEvent = async (eventId, facilityAssignmentId) => {
+  const res = await api.delete(`/events/${eventId}/facilities/${facilityAssignmentId}`);
+  return res.data;
+};
+
+export const getEventFacilities = async (eventId) => {
+  try {
+    const res = await api.get(`/events/${eventId}/facilities`);
+    return res.data;
+  } catch (error) {
+    console.error('Error fetching event facilities:', error);
+    throw error;
+  }
+};
+
 // Create API object
 const apiObject = {
   setAuthToken,
@@ -436,7 +497,15 @@ const apiObject = {
   createAnnouncement,
   getSquareAppInfo,
   processPayment,
-  getPaymentStatus
+  getPaymentStatus,
+  getAllFacilities,
+  getFacilityById,
+  createFacility,
+  updateFacility,
+  deleteFacility,
+  addFacilityToEvent,
+  removeFacilityFromEvent,
+  getEventFacilities
 };
 
 // Export as default

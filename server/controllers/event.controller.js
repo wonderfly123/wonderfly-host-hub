@@ -1,9 +1,14 @@
+// server/controllers/event.controller.js
 const Event = require('../models/event.model');
 
 // Create a new event
 exports.createEvent = async (req, res) => {
   try {
-    const { name, description, date, venue, schedule, spotify } = req.body;
+    const { name, description, date, endTime, status, facility, tripleseatEventId } = req.body;
+    
+    console.log('Received event data:', { 
+      name, description, date, endTime, status, facility, tripleseatEventId
+    });
     
     // Generate a random 6-character access code
     const accessCode = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -12,10 +17,11 @@ exports.createEvent = async (req, res) => {
       name,
       description,
       date,
+      endTime,
       accessCode,
-      venue,
-      schedule,
-      spotify,
+      status, // Now can be 'Definite' or 'Closed'
+      facility,
+      tripleseatEventId, // Add Tripleseat Event ID
       createdBy: req.userId
     });
     
@@ -28,6 +34,9 @@ exports.createEvent = async (req, res) => {
         name: event.name,
         description: event.description,
         date: event.date,
+        endTime: event.endTime,
+        status: event.status,
+        tripleseatEventId: event.tripleseatEventId,
         accessCode: event.accessCode
       }
     });
@@ -48,8 +57,10 @@ exports.getAllEvents = async (req, res) => {
         name: event.name,
         description: event.description,
         date: event.date,
+        endTime: event.endTime,
         accessCode: event.accessCode,
-        status: event.status
+        status: event.status,
+        tripleseatEventId: event.tripleseatEventId
       }))
     });
   } catch (error) {
@@ -61,7 +72,7 @@ exports.getAllEvents = async (req, res) => {
 // Get event by ID
 exports.getEventById = async (req, res) => {
   try {
-    const event = await Event.findById(req.params.eventId);
+    const event = await Event.findById(req.params.eventId).populate('facility');
     
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
@@ -77,7 +88,7 @@ exports.getEventById = async (req, res) => {
 // Update event
 exports.updateEvent = async (req, res) => {
   try {
-    const { name, description, date, venue, schedule, spotify, status } = req.body;
+    const { name, description, date, endTime, schedule, spotify, status, facility, tripleseatEventId } = req.body;
     
     const event = await Event.findById(req.params.eventId);
     
@@ -94,10 +105,12 @@ exports.updateEvent = async (req, res) => {
     if (name) event.name = name;
     if (description) event.description = description;
     if (date) event.date = date;
-    if (venue) event.venue = venue;
+    if (endTime !== undefined) event.endTime = endTime;
     if (schedule) event.schedule = schedule;
     if (spotify) event.spotify = spotify;
     if (status) event.status = status;
+    if (facility) event.facility = facility;
+    if (tripleseatEventId) event.tripleseatEventId = tripleseatEventId;
     
     await event.save();
     
@@ -108,7 +121,9 @@ exports.updateEvent = async (req, res) => {
         name: event.name,
         description: event.description,
         date: event.date,
-        status: event.status
+        endTime: event.endTime,
+        status: event.status,
+        tripleseatEventId: event.tripleseatEventId
       }
     });
   } catch (error) {
@@ -137,5 +152,26 @@ exports.deleteEvent = async (req, res) => {
   } catch (error) {
     console.error('Delete event error:', error);
     res.status(500).json({ message: 'Server error during event deletion' });
+  }
+};
+
+// Find event by Tripleseat ID
+exports.findByTripleseatId = async (req, res) => {
+  try {
+    const tripleseatEventId = req.params.tripleseatId;
+    
+    const event = await Event.findOne({ tripleseatEventId });
+    
+    if (!event) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+    
+    res.status(200).json({ event });
+  } catch (error) {
+    console.error('Find by Tripleseat ID error:', error);
+    res.status(500).json({ 
+      message: 'Server error while retrieving event',
+      error: error.message 
+    });
   }
 };

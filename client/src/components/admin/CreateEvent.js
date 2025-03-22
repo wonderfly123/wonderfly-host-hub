@@ -1,5 +1,5 @@
 // src/components/admin/CreateEvent.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Container,
@@ -17,23 +17,53 @@ import {
   Select,
   MenuItem
 } from '@mui/material';
-import { createEvent } from '../../utils/api';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { DatePicker, TimePicker, LocalizationProvider } from '@mui/x-date-pickers';
+import { createEvent, getAllFacilities } from '../../utils/api';
 
 const CreateEvent = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    date: '',
-    venue: {
-      name: '',
-      address: ''
-    },
-    status: 'planning'
+    date: null,
+    startTime: null,
+    endTime: null,
+    status: 'Definite', // Updated default to 'Definite'
+    facility: '', // Single facility ID
+    tripleseatEventId: '' // New Tripleseat Event ID field
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [facilities, setFacilities] = useState([]);
+  const [facilitiesLoading, setFacilitiesLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchFacilities = async () => {
+      try {
+        console.log('Fetching facilities...');
+        setFacilitiesLoading(true);
+        const response = await getAllFacilities();
+        console.log('Facilities response:', response);
+        setFacilities(response.facilities || []);
+        
+        // Default to first facility if available
+        if (response.facilities && response.facilities.length > 0) {
+          setFormData(prev => ({
+            ...prev,
+            facility: response.facilities[0].id
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching facilities:', error);
+      } finally {
+        setFacilitiesLoading(false);
+      }
+    };
+    
+    fetchFacilities();
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -55,6 +85,27 @@ const CreateEvent = () => {
     }
   };
 
+  const handleDateChange = (date) => {
+    setFormData(prev => ({
+      ...prev,
+      date: date
+    }));
+  };
+
+  const handleStartTimeChange = (time) => {
+    setFormData(prev => ({
+      ...prev,
+      startTime: time
+    }));
+  };
+
+  const handleEndTimeChange = (time) => {
+    setFormData(prev => ({
+      ...prev,
+      endTime: time
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -62,13 +113,61 @@ const CreateEvent = () => {
       setLoading(true);
       setError(null);
       
-      // Convert date to ISO string if it exists
+      // Combine date and time values to create full datetime objects
+      let eventDateTime = null;
+      let eventEndDateTime = null;
+      
+      if (formData.date) {
+        // Create base date object
+        const baseDate = new Date(formData.date);
+        
+        // If start time is set, combine with date
+        if (formData.startTime) {
+          const startTime = new Date(formData.startTime);
+          eventDateTime = new Date(
+            baseDate.getFullYear(),
+            baseDate.getMonth(),
+            baseDate.getDate(),
+            startTime.getHours(),
+            startTime.getMinutes()
+          );
+        } else {
+          // If no start time, use the date with time set to beginning of day
+          eventDateTime = new Date(
+            baseDate.getFullYear(),
+            baseDate.getMonth(),
+            baseDate.getDate(),
+            0, 0, 0
+          );
+        }
+        
+        // If end time is set, combine with date
+        if (formData.endTime) {
+          const endTime = new Date(formData.endTime);
+          eventEndDateTime = new Date(
+            baseDate.getFullYear(),
+            baseDate.getMonth(),
+            baseDate.getDate(),
+            endTime.getHours(),
+            endTime.getMinutes()
+          );
+        }
+      }
+      
+      // Prepare event data with datetime values
       const eventData = {
-        ...formData,
-        date: formData.date ? new Date(formData.date).toISOString() : undefined
+        name: formData.name,
+        description: formData.description,
+        date: eventDateTime ? eventDateTime.toISOString() : undefined,
+        endTime: eventEndDateTime ? eventEndDateTime.toISOString() : undefined,
+        status: formData.status,
+        facility: formData.facility,
+        tripleseatEventId: formData.tripleseatEventId // Include Tripleseat Event ID
       };
       
-      const response = await createEvent(eventData);
+      console.log('Submitting event data:', eventData);
+      
+      await createEvent(eventData);
       setSnackbarOpen(true);
       
       // Redirect to event management after short delay
@@ -130,59 +229,89 @@ const CreateEvent = () => {
               />
             </Grid>
             
-            <Grid item xs={12} sm={6}>
+            {/* New field: Tripleseat Event ID */}
+            <Grid item xs={12}>
               <TextField
-                required
                 fullWidth
-                label="Event Date"
-                name="date"
-                type="date"
-                value={formData.date}
+                label="Tripleseat Event ID"
+                name="tripleseatEventId"
+                value={formData.tripleseatEventId}
                 onChange={handleChange}
                 variant="outlined"
-                InputLabelProps={{
-                  shrink: true,
-                }}
+                helperText="Enter the Tripleseat Event ID if this event is imported from Tripleseat"
               />
             </Grid>
             
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth variant="outlined">
-                <InputLabel id="status-label">Status</InputLabel>
+            <LocalizationProvider dateAdapter={AdapterDateFns}>
+              <Grid item xs={12} sm={6}>
+                <DatePicker
+                  label="Event Date"
+                  value={formData.date}
+                  onChange={handleDateChange}
+                  slotProps={{ textField: { required: true, fullWidth: true } }}
+                />
+              </Grid>
+              
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth variant="outlined">
+                  <InputLabel id="status-label">Status</InputLabel>
+                  <Select
+                    labelId="status-label"
+                    name="status"
+                    value={formData.status}
+                    onChange={handleChange}
+                    label="Status"
+                  >
+                    {/* Updated status options */}
+                    <MenuItem value="Definite">Definite</MenuItem>
+                    <MenuItem value="Closed">Closed</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              
+              <Grid item xs={12} sm={6}>
+                <TimePicker
+                  label="Start Time"
+                  value={formData.startTime}
+                  onChange={handleStartTimeChange}
+                  slotProps={{ textField: { fullWidth: true } }}
+                />
+              </Grid>
+              
+              <Grid item xs={12} sm={6}>
+                <TimePicker
+                  label="End Time"
+                  value={formData.endTime}
+                  onChange={handleEndTimeChange}
+                  slotProps={{ textField: { fullWidth: true } }}
+                />
+              </Grid>
+            </LocalizationProvider>
+            
+            <Grid item xs={12}>
+              <FormControl fullWidth required>
+                <InputLabel id="facility-label">Facility</InputLabel>
                 <Select
-                  labelId="status-label"
-                  name="status"
-                  value={formData.status}
+                  labelId="facility-label"
+                  name="facility"
+                  value={formData.facility}
                   onChange={handleChange}
-                  label="Status"
+                  label="Facility"
+                  disabled={facilitiesLoading}
                 >
-                  <MenuItem value="planning">Planning</MenuItem>
-                  <MenuItem value="active">Active</MenuItem>
-                  <MenuItem value="completed">Completed</MenuItem>
+                  {facilitiesLoading ? (
+                    <MenuItem value="" disabled>Loading facilities...</MenuItem>
+                  ) : facilities.length === 0 ? (
+                    <MenuItem value="" disabled>No facilities available</MenuItem>
+                  ) : (
+                    facilities.map((facility) => (
+                      <MenuItem key={facility.id} value={facility.id}>
+                        {facility.name}
+                      </MenuItem>
+                    ))
+                  )}
                 </Select>
               </FormControl>
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Venue Name"
-                name="venue.name"
-                value={formData.venue.name}
-                onChange={handleChange}
-                variant="outlined"
-              />
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Venue Address"
-                name="venue.address"
-                value={formData.venue.address}
-                onChange={handleChange}
-                variant="outlined"
-              />
             </Grid>
             
             <Grid item xs={12}>

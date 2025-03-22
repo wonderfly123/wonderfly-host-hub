@@ -160,7 +160,7 @@ const EventManagement = () => {
             <TableHead>
               <TableRow>
                 <TableCell>Event Name</TableCell>
-                <TableCell>Date</TableCell>
+                <TableCell>Date & Time</TableCell>
                 <TableCell>Access Code</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell align="right">Actions</TableCell>
@@ -170,7 +170,15 @@ const EventManagement = () => {
               {events.map((event) => (
                 <TableRow key={event.id}>
                   <TableCell>{event.name}</TableCell>
-                  <TableCell>{new Date(event.date).toLocaleDateString()}</TableCell>
+                  <TableCell>
+                    {new Date(event.date).toLocaleDateString()}
+                    {event.date && (
+                      <Typography variant="body2" color="textSecondary">
+                        {new Date(event.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        {event.endTime && ` - ${new Date(event.endTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`}
+                      </Typography>
+                    )}
+                  </TableCell>
                   <TableCell>{event.accessCode}</TableCell>
                   <TableCell>{getStatusChip(event.status)}</TableCell>
                   <TableCell align="right">

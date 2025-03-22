@@ -126,12 +126,23 @@ const EventHome = () => {
             </Typography>
             <Typography variant="subtitle1" color="textSecondary">
               {formatDate(event?.date)}
+              {event?.date && (
+                <Typography variant="body2" color="textSecondary" sx={{ mt: 0.5 }}>
+                  Time: {formatTime(new Date(event.date))}
+                  {event.endTime && ` - ${formatTime(new Date(event.endTime))}`}
+                </Typography>
+              )}
             </Typography>
-            {event?.venue?.name && (
+            {event?.facility && (
               <Box display="flex" alignItems="center" mt={1}>
                 <LocationIcon color="action" sx={{ mr: 1 }} />
                 <Typography variant="body2">
-                  {event.venue.name}{event.venue.address ? ` - ${event.venue.address}` : ''}
+                  {event.facility.name}
+                  {event.facility.description && (
+                    <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
+                      {event.facility.description}
+                    </Typography>
+                  )}
                 </Typography>
               </Box>
             )}

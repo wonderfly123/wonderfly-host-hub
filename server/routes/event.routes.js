@@ -1,3 +1,4 @@
+// server/routes/event.routes.js
 const express = require('express');
 const eventController = require('../controllers/event.controller');
 const { authenticateToken, isAdmin } = require('../middlewares/auth.middleware');
@@ -12,6 +13,9 @@ router.get('/', authenticateToken, isAdmin, eventController.getAllEvents);
 
 // Get event by ID
 router.get('/:eventId', authenticateToken, eventController.getEventById);
+
+// NEW ROUTE: Get event by Tripleseat ID
+router.get('/tripleseat/:tripleseatId', authenticateToken, eventController.findByTripleseatId);
 
 // Update event
 router.put('/:eventId', authenticateToken, eventController.updateEvent);

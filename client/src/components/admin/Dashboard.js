@@ -12,8 +12,8 @@ import {
   CardContent, 
   CardActions,
   List,
-  ListItem,
   ListItemText,
+  ListItemButton,
   Divider,
   CircularProgress
 } from '@mui/material';
@@ -52,16 +52,9 @@ const Dashboard = () => {
     fetchEvents();
   }, []);
 
-  // Add this function to handle feature navigation
-  const handleFeatureClick = (featurePath) => {
-    // If there are no events, prompt to create one first
-    if (events.length === 0) {
-      navigate('/admin/events/create');
-      return;
-    }
-    
-    // Navigate to the feature for the first event
-    navigate(`/admin/events/${events[0].id}${featurePath}`);
+  // Updated handleFeatureClick function to direct to event selection first
+  const handleFeatureClick = (featureType) => {
+    navigate(`/admin/select-event/${featureType}`);
   };
 
   if (loading) {
@@ -110,13 +103,13 @@ const Dashboard = () => {
               Quick Actions
             </Typography>
             <List>
-              <ListItem button component={Link} to="/admin/events/create">
+              <ListItemButton component={Link} to="/admin/events/create">
                 <ListItemText primary="Create New Event" />
-              </ListItem>
+              </ListItemButton>
               <Divider />
-              <ListItem button component={Link} to="/admin/events">
+              <ListItemButton component={Link} to="/admin/events">
                 <ListItemText primary="Manage Events" />
-              </ListItem>
+              </ListItemButton>
             </List>
           </Paper>
         </Grid>
@@ -212,7 +205,7 @@ const Dashboard = () => {
                     boxShadow: 6 
                   }
                 }}
-                onClick={() => handleFeatureClick('/music')}
+                onClick={() => handleFeatureClick('music')}
               >
                 <MusicIcon color="primary" sx={{ fontSize: 40, my: 1 }} />
                 <Typography variant="h6">Music</Typography>
@@ -234,7 +227,7 @@ const Dashboard = () => {
                     boxShadow: 6 
                   } 
                 }}
-                onClick={() => handleFeatureClick('/menu')}
+                onClick={() => handleFeatureClick('orders')}
               >
                 <OrderIcon color="primary" sx={{ fontSize: 40, my: 1 }} />
                 <Typography variant="h6">Orders</Typography>
@@ -256,7 +249,7 @@ const Dashboard = () => {
                     boxShadow: 6 
                   } 
                 }}
-                onClick={() => handleFeatureClick('/timeline')}
+                onClick={() => handleFeatureClick('timeline')}
               >
                 <TimelineIcon color="primary" sx={{ fontSize: 40, my: 1 }} />
                 <Typography variant="h6">Timeline</Typography>
@@ -278,7 +271,7 @@ const Dashboard = () => {
                     boxShadow: 6 
                   } 
                 }}
-                onClick={() => handleFeatureClick('/announcements')}
+                onClick={() => handleFeatureClick('announcements')}
               >
                 <NotificationsIcon color="primary" sx={{ fontSize: 40, my: 1 }} />
                 <Typography variant="h6">Announcements</Typography>
@@ -300,7 +293,7 @@ const Dashboard = () => {
                     boxShadow: 6 
                   } 
                 }}
-                onClick={() => handleFeatureClick('/polls')}
+                onClick={() => handleFeatureClick('polls')}
               >
                 <PollIcon color="primary" sx={{ fontSize: 40, my: 1 }} />
                 <Typography variant="h6">Polls</Typography>

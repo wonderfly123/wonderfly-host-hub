@@ -1,3 +1,4 @@
+// server.js
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
@@ -88,11 +89,45 @@ async function createTestTimelineItems() {
   }
 }
 
+// Create default facilities if none exist
+const Facility = require('./server/models/facility.model');
+
+async function createDefaultFacilities() {
+  try {
+    // Check if there are any facilities
+    const count = await Facility.countDocuments();
+    console.log('Existing facilities count:', count);
+    
+    if (count === 0) {
+      console.log('Creating default facilities: Arbutus and Timonium');
+      
+      const facilities = [
+        {
+          name: 'Wonderfly Arena Arbutus',
+          description: 'Wonderfly Arena located in Arbutus'
+        },
+        {
+          name: 'Wonderfly Arena Timonium',
+          description: 'Wonderfly Arena located in Timonium'
+        }
+      ];
+      
+      const result = await Facility.insertMany(facilities);
+      console.log('Default facilities created:', result);
+    } else {
+      console.log('Facilities already exist, skipping seed');
+    }
+  } catch (error) {
+    console.error('Error creating default facilities:', error);
+  }
+}
+
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => {
     console.log('MongoDB connected');
     createTestTimelineItems();
+    createDefaultFacilities(); // Add this line
   })
   .catch(err => console.error('MongoDB connection error:', err));
 
@@ -181,6 +216,7 @@ app.use('/api/polls', require('./server/routes/poll.routes'));
 app.use('/api/notifications', require('./server/routes/notification.routes'));
 app.use('/api/timeline', require('./server/routes/timeline.routes'));
 app.use('/api/payments', require('./server/routes/payment.routes'));
+app.use('/api/facilities', require('./server/routes/facility.routes')); // Added facility routes
 
 // Test route
 app.get('/api/test', (req, res) => {

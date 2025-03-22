@@ -22,7 +22,8 @@
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
-    "@mui/x-date-pickers": "^6.18.2",
+    "@date-io/date-fns": "^3.2.1",
+    "@mui/x-date-pickers": "^6.20.2",
     "@square/web-sdk": "^2.1.0",
     "axios": "^1.8.2",
     "bcrypt": "^5.1.1",
@@ -35,6 +36,8 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.12.1",
     "morgan": "^1.10.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
     "socket.io": "^4.8.1",
     "square": "^41.0.0"
   },

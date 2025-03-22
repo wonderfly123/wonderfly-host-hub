@@ -15,16 +15,26 @@ const eventSchema = new mongoose.Schema({
     type: Date,
     required: true
   },
+  endTime: {
+    type: Date
+  },
   accessCode: {
     type: String,
     required: true,
     unique: true
   },
-  venue: {
-    name: String,
-    address: String,
-    mapUrl: String
+  // Add Tripleseat Event ID field
+  tripleseatEventId: {
+    type: String,
+    index: true // Add index for faster lookups
   },
+  // Add required single facility reference
+  facility: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Facility',
+    required: true
+  },
+  
   schedule: [{
     time: Date,
     title: String,
@@ -61,10 +71,11 @@ const eventSchema = new mongoose.Schema({
     },
     availableThemes: [String]
   },
+  // Update status enum to match Tripleseat
   status: {
     type: String,
-    enum: ['planning', 'active', 'completed'],
-    default: 'planning'
+    enum: ['Definite', 'Closed'],
+    default: 'Definite'
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
