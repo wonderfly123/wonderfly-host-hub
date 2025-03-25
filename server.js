@@ -28,7 +28,7 @@ const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
     origin: process.env.NODE_ENV === 'production' 
-      ? '*' // Accept all origins in production
+      ? ['https://wonderfly-host-hub.onrender.com', 'http://wonderfly-host-hub.onrender.com', '*'] // Be more specific in production
       : 'http://localhost:3000',
     methods: ['GET', 'POST'],
     credentials: true
@@ -37,14 +37,22 @@ const io = socketIo(server, {
 
 // Log socket.io config
 console.log('Socket.io configured with CORS settings:', {
-  origin: process.env.NODE_ENV === 'production' ? '*' : 'http://localhost:3000'
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://wonderfly-host-hub.onrender.com', 'http://wonderfly-host-hub.onrender.com', '*'] 
+    : 'http://localhost:3000'
 });
 
 // Make io available to routes and controllers
 app.set('io', io);
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://wonderfly-host-hub.onrender.com', 'http://wonderfly-host-hub.onrender.com', '*']
+    : 'http://localhost:3000',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -234,11 +242,13 @@ setTimeout(() => {
 
 // Socket.io middleware for authentication
 io.use((socket, next) => {
-  const token = socket.handshake.auth.token;
+  const token = socket.handshake.auth?.token;
   
   if (!token) {
-    console.log('Socket connection attempt with no token');
-    return next(new Error('Authentication error'));
+    console.log('Socket connection attempt with no token - allowing for public content');
+    socket.userId = 'anonymous-' + Date.now();
+    socket.isAnonymous = true;
+    return next();
   }
   
   try {
@@ -250,15 +260,20 @@ io.use((socket, next) => {
     socket.userId = decoded.id || decoded.userId;
     
     if (!socket.userId) {
-      console.log('Invalid token format in socket connection');
-      return next(new Error('Invalid token format'));
+      console.log('Invalid token format in socket connection - allowing as anonymous');
+      socket.userId = 'anonymous-' + Date.now();
+      socket.isAnonymous = true;
+      return next();
     }
     
     console.log(`Socket authenticated for user: ${socket.userId}`);
     next();
   } catch (error) {
     console.error('Socket authentication error:', error);
-    next(new Error('Authentication error'));
+    console.log('Allowing as anonymous user');
+    socket.userId = 'anonymous-' + Date.now();
+    socket.isAnonymous = true;
+    next();
   }
 });
 

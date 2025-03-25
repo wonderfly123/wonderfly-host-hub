@@ -31,10 +31,21 @@ if (!process.env.SQUARE_ACCESS_TOKEN || process.env.NODE_ENV !== 'production') {
 } else {
   try {
     // Real Square implementation
-    const { Client } = require('square');
+    let square;
+    try {
+      square = require('square');
+    } catch (err) {
+      console.error('Failed to require Square package:', err);
+      throw new Error('Square package not available');
+    }
+    
+    if (!square || !square.Client) {
+      console.error('Square Client not found in package');
+      throw new Error('Square Client not available');
+    }
     
     // Initialize Square client
-    const squareClient = new Client({
+    const squareClient = new square.Client({
       accessToken: process.env.SQUARE_ACCESS_TOKEN,
       environment: process.env.NODE_ENV === 'production' ? 'production' : 'sandbox'
     });
