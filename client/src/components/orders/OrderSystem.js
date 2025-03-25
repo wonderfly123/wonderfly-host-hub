@@ -102,6 +102,7 @@ const OrderSystem = () => {
   const [currentOrder, setCurrentOrder] = useState(null);
   const [squareLoaded, setSquareLoaded] = useState(false);
   const [card, setCard] = useState(null);
+  // eslint-disable-next-line no-unused-vars
   const [paymentForm, setPaymentForm] = useState(null);
 
   useEffect(() => {

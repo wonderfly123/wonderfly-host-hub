@@ -52,6 +52,7 @@ const MusicControl = () => {
   const [currentTrack, setCurrentTrack] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [votingQueue, setVotingQueue] = useState([]);
+  // eslint-disable-next-line no-unused-vars
   const [socket, setSocket] = useState(null);
   const [tabValue, setTabValue] = useState(0);
   const [playlists, setPlaylists] = useState([]);

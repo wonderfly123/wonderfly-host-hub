@@ -22,13 +22,11 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Divider,
   List,
   ListItem,
   ListItemText,
   ListItemSecondaryAction,
   InputAdornment,
-  Fab,
   Chip,
   CircularProgress,
   Alert,
@@ -46,7 +44,6 @@ import { getEventById, getEventMenu, createMenuItem, updateMenuItem, deleteMenuI
 
 const MenuManagement = () => {
   const { eventId } = useParams();
-  const navigate = useNavigate();
   const [event, setEvent] = useState(null);
   const [menu, setMenu] = useState({});
   const [loading, setLoading] = useState(true);
@@ -81,6 +78,7 @@ const MenuManagement = () => {
 
   useEffect(() => {
     fetchEventData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
 
   const fetchEventData = async () => {
@@ -110,6 +108,7 @@ const MenuManagement = () => {
     }
   };
 
+  // eslint-disable-next-line no-unused-vars
   const getCategoryIcon = (category) => {
     switch (category) {
       case 'food':

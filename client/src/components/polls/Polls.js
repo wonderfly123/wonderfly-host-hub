@@ -63,6 +63,7 @@ const Polls = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [tabValue, setTabValue] = useState(0);
+  // eslint-disable-next-line no-unused-vars
   const [socket, setSocket] = useState(null);
   const [highlightedPollId, setHighlightedPollId] = useState(null);
 
