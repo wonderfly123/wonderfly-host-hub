@@ -9,10 +9,20 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# Tripleseat credentials
+# Tripleseat credentials with enhanced debugging
 tripleseat_client_id = os.getenv("TRIPLESEAT_CLIENT_ID")
 tripleseat_client_secret = os.getenv("TRIPLESEAT_CLIENT_SECRET")
 tripleseat_base_url = os.getenv("TRIPLESEAT_BASE_URL", "https://api.tripleseat.com/v1/")
+
+# Print loaded environment variables
+print("[ENV DEBUG] Available environment variables:")
+print(f"[ENV DEBUG] TRIPLESEAT_CLIENT_ID exists: {'Yes' if tripleseat_client_id else 'No'}")
+print(f"[ENV DEBUG] TRIPLESEAT_CLIENT_SECRET exists: {'Yes' if tripleseat_client_secret else 'No'}")
+print(f"[ENV DEBUG] TRIPLESEAT_BASE_URL: {tripleseat_base_url}")
+print(f"[ENV DEBUG] HOST_HUB_ADMIN_USERNAME exists: {'Yes' if os.getenv('HOST_HUB_ADMIN_USERNAME') else 'No'}")
+print("[ENV DEBUG] Current working directory:", os.getcwd())
+print("[ENV DEBUG] .env file exists:", os.path.exists(".env"))
+print("[ENV DEBUG] .env in parent directory exists:", os.path.exists("../.env"))
 
 # Host Hub settings
 host_hub_port = os.getenv("PORT", "5002")
@@ -30,23 +40,81 @@ def get_tripleseat_token():
     """Get Tripleseat API access token"""
     token_url = "https://api.tripleseat.com/oauth/token"
     
+    # Debug environment variables
+    print(f"[DEBUG] TRIPLESEAT_CLIENT_ID length: {len(tripleseat_client_id) if tripleseat_client_id else 'NOT SET'}")
+    print(f"[DEBUG] TRIPLESEAT_CLIENT_SECRET length: {len(tripleseat_client_secret) if tripleseat_client_secret else 'NOT SET'}")
+    print(f"[DEBUG] First 4 chars of client_id: {tripleseat_client_id[:4] if tripleseat_client_id and len(tripleseat_client_id) >= 4 else 'N/A'}")
+    
+    # Create payload dictionary
     payload = {
         "client_id": tripleseat_client_id,
         "client_secret": tripleseat_client_secret,
         "grant_type": "client_credentials"
     }
     
-    print("Getting Tripleseat auth token...")
-    response = requests.post(token_url, json=payload)
+    print("[DEBUG] Token URL:", token_url)
+    print("[DEBUG] Request payload keys:", list(payload.keys()))
+    print("[DEBUG] Grant type:", payload["grant_type"])
     
-    if response.status_code != 200:
-        print(f"Error getting Tripleseat token: {response.status_code}")
-        print(response.text)
-        raise Exception(f"Failed to get Tripleseat token")
+    # Try multiple ways of sending the request
+    methods_to_try = [
+        {
+            "name": "form-data with Content-Type header",
+            "func": lambda: requests.post(
+                token_url, 
+                data=payload,
+                headers={"Content-Type": "application/x-www-form-urlencoded"}
+            )
+        },
+        {
+            "name": "JSON payload",
+            "func": lambda: requests.post(token_url, json=payload)
+        },
+        {
+            "name": "form-data without Content-Type header",
+            "func": lambda: requests.post(token_url, data=payload)
+        }
+    ]
+    
+    for method in methods_to_try:
+        try:
+            print(f"[DEBUG] Trying method: {method['name']}...")
+            response = method["func"]()
+            
+            print(f"[DEBUG] Response status: {response.status_code}")
+            print(f"[DEBUG] Response headers: {dict(response.headers)}")
+            print(f"[DEBUG] Response body: {response.text}")
+            
+            if response.status_code == 200:
+                token = response.json().get("access_token")
+                print(f"[SUCCESS] Method {method['name']} worked!")
+                return token
+            else:
+                print(f"[DEBUG] Method {method['name']} failed with status {response.status_code}")
         
-    token = response.json().get("access_token")
-    print("Successfully obtained Tripleseat token")
-    return token
+        except Exception as e:
+            print(f"[DEBUG] Exception with method {method['name']}: {str(e)}")
+    
+    # If we reach here, all methods failed
+    print("[ERROR] All authentication methods failed")
+    
+    # Check if client credentials are valid by attempting a test validation
+    try:
+        print("[DEBUG] Double-checking Tripleseat credentials format...")
+        # Client ID and secret should be UUID-like strings
+        client_id_valid = len(tripleseat_client_id) > 10 if tripleseat_client_id else False
+        client_secret_valid = len(tripleseat_client_secret) > 10 if tripleseat_client_secret else False
+        
+        print(f"[DEBUG] Client ID format looks valid: {client_id_valid}")
+        print(f"[DEBUG] Client secret format looks valid: {client_secret_valid}")
+        
+        if not client_id_valid or not client_secret_valid:
+            print("[WARNING] Tripleseat credentials don't appear to be in the expected format")
+            print("[HELP] Check that your credentials are correctly copied from Tripleseat")
+    except Exception as e:
+        print(f"[DEBUG] Error checking credential format: {str(e)}")
+    
+    raise Exception("Failed to get Tripleseat token - all authentication methods failed")
 
 def get_tripleseat_event(event_id, token):
     """Get event data from Tripleseat"""
@@ -141,39 +209,100 @@ def extract_event_data(event_id):
     print(f"\n=== EXTRACTING TRIPLESEAT EVENT {event_id} ===\n")
     
     try:
+        # Check for required environment variables
+        print("[VALIDATION] Checking required environment variables...")
+        missing_vars = []
+        
+        if not tripleseat_client_id:
+            missing_vars.append("TRIPLESEAT_CLIENT_ID")
+        
+        if not tripleseat_client_secret:
+            missing_vars.append("TRIPLESEAT_CLIENT_SECRET")
+        
+        if missing_vars:
+            print(f"[ERROR] The following required environment variables are missing: {', '.join(missing_vars)}")
+            print("[HELP] Make sure these variables are set in your .env file in the project root directory.")
+            print("[DEBUG] To troubleshoot, try:")
+            print("  1. Check that your .env file exists and contains the correct variables")
+            print("  2. Try printing the environment variables directly: python3 -c 'import os; print(os.environ.get(\"TRIPLESEAT_CLIENT_ID\"))'")
+            print("  3. Run this script with: python3 -m dotenv.cli .env python3 server/services/create_event.py")
+            
+            # Try to give more info about the .env file
+            for search_path in [".env", "../.env", "../../.env"]:
+                if os.path.exists(search_path):
+                    print(f"[INFO] Found .env file at {search_path}")
+                    try:
+                        with open(search_path, 'r') as f:
+                            env_contents = f.read()
+                            # Don't print actual values, just check if the keys exist
+                            has_client_id = "TRIPLESEAT_CLIENT_ID" in env_contents
+                            has_client_secret = "TRIPLESEAT_CLIENT_SECRET" in env_contents
+                            print(f"[INFO] .env file contains TRIPLESEAT_CLIENT_ID: {has_client_id}")
+                            print(f"[INFO] .env file contains TRIPLESEAT_CLIENT_SECRET: {has_client_secret}")
+                    except Exception as e:
+                        print(f"[ERROR] Failed to read .env file: {str(e)}")
+            
+            return False
+            
         # Get Tripleseat token
-        tripleseat_token = get_tripleseat_token()
+        try:
+            print("[API] Attempting to get Tripleseat token...")
+            tripleseat_token = get_tripleseat_token()
+            print(f"[API] Token obtained successfully: {tripleseat_token[:10]}...")
+        except Exception as token_error:
+            print(f"[ERROR] Failed to get Tripleseat token: {str(token_error)}")
+            print("[DEBUG] This is likely due to invalid credentials or an API connectivity issue.")
+            print("[HELP] Verify your Tripleseat API credentials and ensure they are active.")
+            return False
         
         # Get event from Tripleseat
-        tripleseat_event = get_tripleseat_event(event_id, tripleseat_token)
-        if not tripleseat_event:
-            print("Failed to get event from Tripleseat")
+        try:
+            print(f"[API] Retrieving event {event_id} from Tripleseat...")
+            tripleseat_event = get_tripleseat_event(event_id, tripleseat_token)
+            if not tripleseat_event:
+                print(f"[ERROR] Failed to get event {event_id} from Tripleseat")
+                return False
+            print(f"[API] Successfully retrieved event: {tripleseat_event.get('name', 'Unknown')}")
+        except Exception as event_error:
+            print(f"[ERROR] Exception retrieving event: {str(event_error)}")
             return False
         
         # Map to Host Hub format
-        host_hub_data = map_tripleseat_to_host_hub(tripleseat_event)
-        if not host_hub_data:
-            print("Failed to map event data")
+        try:
+            print("[PROCESSING] Mapping Tripleseat data to Host Hub format...")
+            host_hub_data = map_tripleseat_to_host_hub(tripleseat_event)
+            if not host_hub_data:
+                print("[ERROR] Failed to map event data - mapping function returned None")
+                return False
+            print("[PROCESSING] Mapping completed successfully")
+        except Exception as mapping_error:
+            print(f"[ERROR] Exception during data mapping: {str(mapping_error)}")
             return False
         
         # Save mapped data to file
-        output_file = f'event_{event_id}_data.json'
-        with open(output_file, 'w') as f:
-            json.dump(host_hub_data, f, indent=2)
-            print(f"Saved mapped event data to {output_file}")
-        
-        print("\n=== EVENT DATA EXTRACTION SUCCESSFUL ===")
-        print(f"Event Name: {host_hub_data.get('name')}")
-        print(f"Event Date: {host_hub_data.get('date')}")
-        print(f"Event Start Time: {host_hub_data.get('startTime')}")
-        print(f"Event End Time: {host_hub_data.get('endTime')}")
-        print(f"Facility: {host_hub_data.get('facility')}")
-        print(f"Tripleseat ID: {host_hub_data.get('tripleseatEventId')}")
-        print(f"\nData saved to {output_file}")
-        return output_file
+        try:
+            output_file = f'event_{event_id}_data.json'
+            with open(output_file, 'w') as f:
+                json.dump(host_hub_data, f, indent=2)
+                print(f"[FILE] Saved mapped event data to {output_file}")
+            
+            print("\n=== EVENT DATA EXTRACTION SUCCESSFUL ===")
+            print(f"Event Name: {host_hub_data.get('name')}")
+            print(f"Event Date: {host_hub_data.get('date')}")
+            print(f"Event Start Time: {host_hub_data.get('startTime')}")
+            print(f"Event End Time: {host_hub_data.get('endTime')}")
+            print(f"Facility: {host_hub_data.get('facility')}")
+            print(f"Tripleseat ID: {host_hub_data.get('tripleseatEventId')}")
+            print(f"\nData saved to {output_file}")
+            return output_file
+        except Exception as file_error:
+            print(f"[ERROR] Exception saving output file: {str(file_error)}")
+            return False
     
     except Exception as e:
-        print(f"Error extracting event data: {str(e)}")
+        print(f"[ERROR] Unhandled exception in extract_event_data: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return False
 
 def create_event_from_file(json_file):

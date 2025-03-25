@@ -17,7 +17,7 @@ const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
     origin: process.env.NODE_ENV === 'production' 
-      ? 'https://yourdomain.com' 
+      ? '*' // Accept all origins in production
       : 'http://localhost:3000',
     methods: ['GET', 'POST'],
     credentials: true

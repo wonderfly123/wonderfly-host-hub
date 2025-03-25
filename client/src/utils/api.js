@@ -1,7 +1,7 @@
 // client/src/utils/api.js
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5002/api';
+const API_URL = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:5002/api';
 
 // Configure axios with a base instance
 const api = axios.create({
