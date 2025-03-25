@@ -426,7 +426,17 @@ process.on('uncaughtException', (err) => {
   console.error('🚨 UNCAUGHT EXCEPTION 🚨');
   console.error('Error details:', err);
   console.error('Stack trace:', err.stack);
-  // Keep the process alive but log the error
+  
+  // Log critical info that might help diagnose the issue
+  console.error('NODE_ENV:', process.env.NODE_ENV);
+  console.error('PORT:', process.env.PORT);
+  console.error('Current directory:', __dirname);
+  
+  // Don't exit the process, but make sure the error is logged
+  if (process.env.NODE_ENV === 'production') {
+    // In production, we might want to restart the server automatically
+    console.error('Uncaught exception in production - service may need restart');
+  }
 });
 
 process.on('unhandledRejection', (reason, promise) => {
@@ -440,18 +450,19 @@ process.on('unhandledRejection', (reason, promise) => {
 const PORT = process.env.PORT || 5002;
 
 console.log('Attempting to start server on port', PORT);
+console.log('Environment PORT value:', process.env.PORT);
 
 // Add error handling for server startup
-const serverInstance = server.listen(PORT, () => {
+const serverInstance = server.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server successfully started and listening on port ${PORT}`);
   console.log('Server environment:', process.env.NODE_ENV || 'development');
   
   // Log server address info
   const addressInfo = serverInstance.address();
   console.log('Server address info:', {
-    address: addressInfo.address || 'not available',
-    port: addressInfo.port,
-    family: addressInfo.family
+    address: addressInfo?.address || 'not available',
+    port: addressInfo?.port,
+    family: addressInfo?.family
   });
   
   // Log routes for debugging
