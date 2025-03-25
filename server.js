@@ -11,6 +11,17 @@ const jwt = require('jsonwebtoken');
 // Load environment variables
 dotenv.config();
 
+// Environment logging
+console.log('========== ENVIRONMENT DETAILS ==========');
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('PORT:', process.env.PORT || 5002);
+console.log('MongoDB URI configured:', process.env.MONGODB_URI ? 'Yes' : 'No');
+console.log('JWT Secret configured:', process.env.JWT_SECRET ? 'Yes' : 'No');
+console.log('Current directory:', __dirname);
+console.log('Client build path:', path.join(__dirname, 'client/build'));
+console.log('Detecting build directory:', require('fs').existsSync(path.join(__dirname, 'client/build')) ? 'Found' : 'Not found');
+console.log('=======================================');
+
 // Initialize Express app
 const app = express();
 const server = http.createServer(app);
@@ -22,6 +33,11 @@ const io = socketIo(server, {
     methods: ['GET', 'POST'],
     credentials: true
   }
+});
+
+// Log socket.io config
+console.log('Socket.io configured with CORS settings:', {
+  origin: process.env.NODE_ENV === 'production' ? '*' : 'http://localhost:3000'
 });
 
 // Make io available to routes and controllers
@@ -123,13 +139,98 @@ async function createDefaultFacilities() {
 }
 
 // Connect to MongoDB
+console.log('Attempting to connect to MongoDB...');
+
+// Additional MongoDB connection logging and monitoring
+function logDbConnectionState() {
+  const stateMap = {
+    0: 'disconnected',
+    1: 'connected',
+    2: 'connecting',
+    3: 'disconnecting'
+  };
+  
+  const state = mongoose.connection.readyState;
+  console.log(`MongoDB connection state: ${state} (${stateMap[state] || 'unknown'})`);
+  return state;
+}
+
+// Set up MongoDB connection event listeners
+mongoose.connection.on('connected', () => {
+  console.log('🟢 MongoDB event: connected');
+});
+
+mongoose.connection.on('disconnected', () => {
+  console.log('🔴 MongoDB event: disconnected');
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('🚨 MongoDB connection error event:', err);
+});
+
+mongoose.connection.on('reconnected', () => {
+  console.log('🟠 MongoDB event: reconnected');
+});
+
+// Log a sanitized version of the MongoDB URI if it exists
+if (process.env.MONGODB_URI) {
+  const sanitizedUri = process.env.MONGODB_URI.replace(/(mongodb(\+srv)?:\/\/)([^:]+):([^@]+)@/, '$1***:***@');
+  console.log('MongoDB URI (sanitized):', sanitizedUri);
+  
+  // Extract non-sensitive URI parts for debugging
+  try {
+    const url = new URL(process.env.MONGODB_URI);
+    console.log('MongoDB connection details:');
+    console.log('- Protocol:', url.protocol);
+    console.log('- Host:', url.hostname);
+    console.log('- Port:', url.port || 'default');
+    console.log('- Database:', url.pathname.substring(1) || 'none specified');
+    console.log('- SRV record used:', process.env.MONGODB_URI.includes('+srv'));
+  } catch (err) {
+    console.error('Error parsing MongoDB URI:', err.message);
+  }
+} else {
+  console.error('⛔ MONGODB_URI is not defined in environment variables');
+}
+
+// Check current connection state
+logDbConnectionState();
+
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => {
-    console.log('MongoDB connected');
+    console.log('✅ MongoDB connected successfully');
+    console.log('MongoDB connection details:');
+    console.log('- Connection state:', mongoose.connection.readyState);
+    console.log('- Connected to host:', mongoose.connection.host);
+    console.log('- Database name:', mongoose.connection.name);
+    console.log('- MongoDB version:', mongoose.connection.db?.serverConfig?.s?.options?.serverApi?.version || 'unknown');
+    
+    // Create seed data
     createTestTimelineItems();
-    createDefaultFacilities(); // Add this line
+    createDefaultFacilities();
   })
-  .catch(err => console.error('MongoDB connection error:', err));
+  .catch(err => {
+    console.error('⛔ MongoDB connection error details:');
+    console.error('- Error message:', err.message);
+    console.error('- Error code:', err.code);
+    console.error('- Error name:', err.name);
+    
+    if (err.name === 'MongoServerSelectionError') {
+      console.error('- Server selection timed out. Possible causes:');
+      console.error('  1. Network connectivity issues');
+      console.error('  2. MongoDB server is not running');
+      console.error('  3. Incorrect MongoDB URI');
+      console.error('  4. Firewall blocking connection');
+    }
+    
+    console.error('Full error stack:', err.stack);
+  });
+
+// Re-check connection state after 5 seconds
+setTimeout(() => {
+  console.log('Re-checking MongoDB connection status after 5 seconds:');
+  logDbConnectionState();
+}, 5000);
 
 // Socket.io middleware for authentication
 io.use((socket, next) => {
@@ -223,17 +324,169 @@ app.get('/api/test', (req, res) => {
   res.json({ message: 'API is working!' });
 });
 
+// Render health check routes (both /health and root path for maximum compatibility)
+app.get('/health', (req, res) => {
+  // For Render health checks, a simple 200 OK response is sufficient
+  res.status(200).send('OK');
+});
+
+// Additional root health check that won't interfere with React routing in production
+// because we only serve the React app for * routes in production mode
+app.get('/ping', (req, res) => {
+  res.status(200).send('pong');
+});
+
+// Server status and health check route with detailed information
+app.get('/api/status', (req, res) => {
+  const stateMap = {
+    0: 'disconnected',
+    1: 'connected',
+    2: 'connecting',
+    3: 'disconnecting'
+  };
+  
+  const mongoStatus = {
+    state: mongoose.connection.readyState,
+    stateDescription: stateMap[mongoose.connection.readyState] || 'unknown',
+    connected: mongoose.connection.readyState === 1,
+    host: mongoose.connection.host || 'not connected',
+    database: mongoose.connection.name || 'not connected'
+  };
+  
+  const memoryUsage = process.memoryUsage();
+  
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    server: {
+      uptime: process.uptime(),
+      memory: {
+        rss: `${Math.round(memoryUsage.rss / 1024 / 1024)} MB`,
+        heapTotal: `${Math.round(memoryUsage.heapTotal / 1024 / 1024)} MB`,
+        heapUsed: `${Math.round(memoryUsage.heapUsed / 1024 / 1024)} MB`
+      },
+      port: PORT
+    },
+    database: mongoStatus
+  });
+});
+
 // Serve static assets in production
 if (process.env.NODE_ENV === 'production') {
+  console.log('🌐 Running in production mode - serving static assets from', path.join(__dirname, 'client/build'));
+  
+  // Verify client build directory exists
+  const clientBuildPath = path.join(__dirname, 'client/build');
+  const clientBuildExists = require('fs').existsSync(clientBuildPath);
+  console.log(`Client build directory ${clientBuildPath} exists: ${clientBuildExists ? 'Yes' : 'No'}`);
+  
+  if (clientBuildExists) {
+    // Check if index.html exists in the build directory
+    const indexHtmlPath = path.join(clientBuildPath, 'index.html');
+    const indexHtmlExists = require('fs').existsSync(indexHtmlPath);
+    console.log(`index.html file ${indexHtmlPath} exists: ${indexHtmlExists ? 'Yes' : 'No'}`);
+  }
+  
   app.use(express.static(path.join(__dirname, 'client/build')));
   
+  // Make sure our API and health check routes are handled before the catch-all route
   app.get('*', (req, res) => {
+    // Log first few requests to catch-all route in production for debugging
+    if (!global.catchAllRequestCount) {
+      global.catchAllRequestCount = 0;
+    }
+    
+    if (global.catchAllRequestCount < 5) {
+      console.log(`Catch-all route handling request for: ${req.originalUrl}`);
+      global.catchAllRequestCount++;
+    }
+    
     res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
   });
 }
 
+// Process-level error handling
+process.on('uncaughtException', (err) => {
+  console.error('🚨 UNCAUGHT EXCEPTION 🚨');
+  console.error('Error details:', err);
+  console.error('Stack trace:', err.stack);
+  // Keep the process alive but log the error
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('🚨 UNHANDLED PROMISE REJECTION 🚨');
+  console.error('Promise:', promise);
+  console.error('Reason:', reason);
+  // Keep the process alive but log the error
+});
+
 // Start server
 const PORT = process.env.PORT || 5002;
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+
+console.log('Attempting to start server on port', PORT);
+
+// Add error handling for server startup
+const serverInstance = server.listen(PORT, () => {
+  console.log(`✅ Server successfully started and listening on port ${PORT}`);
+  console.log('Server environment:', process.env.NODE_ENV || 'development');
+  
+  // Log server address info
+  const addressInfo = serverInstance.address();
+  console.log('Server address info:', {
+    address: addressInfo.address || 'not available',
+    port: addressInfo.port,
+    family: addressInfo.family
+  });
+  
+  // Log routes for debugging
+  console.log('\n📋 Registered API Routes:');
+  const apiRoutes = [];
+  app._router.stack
+    .filter(r => r.route && r.route.path)
+    .forEach(r => {
+      Object.keys(r.route.methods).forEach(method => {
+        apiRoutes.push(`${method.toUpperCase()} ${r.route.path}`);
+      });
+    });
+  
+  app._router.stack
+    .filter(r => r.name === 'router' && r.handle && r.handle.stack)
+    .forEach(r => {
+      if (r.regexp && r.regexp.toString().includes('api')) {
+        r.handle.stack
+          .filter(h => h.route && h.route.path)
+          .forEach(h => {
+            Object.keys(h.route.methods).forEach(method => {
+              apiRoutes.push(`${method.toUpperCase()} /api/${h.route.path}`);
+            });
+          });
+      }
+    });
+  
+  if (apiRoutes.length > 0) {
+    apiRoutes.forEach(route => console.log(`- ${route}`));
+  } else {
+    console.log('No API routes found or unable to enumerate routes');
+  }
+  
+  console.log('\n🌐 Server ready to accept connections');
+  console.log('=======================================');
+});
+
+// Add server error event handlers
+serverInstance.on('error', (error) => {
+  console.error('🚨 SERVER ERROR EVENT 🚨');
+  console.error('Error name:', error.name);
+  console.error('Error message:', error.message);
+  console.error('Error code:', error.code);
+  console.error('Full error:', error);
+  
+  if (error.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use. Please choose a different port or terminate the process using this port.`);
+  }
+});
+
+serverInstance.on('close', () => {
+  console.log('Server closed');
 });
