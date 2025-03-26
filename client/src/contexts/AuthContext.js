@@ -14,7 +14,7 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Set up axios defaults
-  axios.defaults.baseURL = 'http://localhost:5002/api';
+  axios.defaults.baseURL = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:5002/api';
   
   // Update auth token in API utility and axios defaults
   useEffect(() => {
